@@ -15,11 +15,9 @@
  *   Tile source: OpenStreetMap — free, no API key required
  *   Marker:      Custom L.divIcon so the pulsing CSS animation applies correctly
  */
-import { MapContainer, Marker, TileLayer } from 'react-leaflet'
+import { MapContainer, Marker, Polygon, TileLayer, Tooltip } from 'react-leaflet'
 import L from 'leaflet'
-
-// Geographic center of Cabagan, Isabela — the map loads centred here
-const CABAGAN_CENTER = [17.4227, 121.7701]
+import { CABAGAN_BOUNDARY_COORDS, CABAGAN_CENTER } from '../utils/cabaganGeofence'
 
 /**
  * Converts the current personnel status to a visual marker class.
@@ -47,13 +45,21 @@ const getMarkerStatusClass = (status = '') => {
   return 'police-marker--default'
 }
 
+const getMarkerClass = (member) => {
+  if (member.isInsideCabagan === false) {
+    return 'police-marker--out-of-boundary'
+  }
+
+  return getMarkerStatusClass(member.status)
+}
+
 /**
  * Builds a custom Leaflet divIcon containing the officer photo itself.
  * This produces a marker closer to the screenshot: circular portrait,
  * colored status ring, and a small pointer at the bottom.
  */
 const createPoliceMarkerIcon = (member) => {
-  const statusClass = getMarkerStatusClass(member.status)
+  const statusClass = getMarkerClass(member)
   const fallbackUrl = `https://ui-avatars.com/api/?name=${encodeURIComponent(member.name)}&background=1d4ed8&color=fff&size=96`
 
   return L.divIcon({
@@ -90,6 +96,20 @@ function PersonnelMap({ personnel, onSelectPersonnel }) {
           attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
           url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
         />
+
+        <Polygon
+          positions={CABAGAN_BOUNDARY_COORDS}
+          pathOptions={{
+            color: '#dc2626',
+            weight: 4,
+            fillOpacity: .1,
+            dashArray: '8 7',
+          }}
+        >
+          <Tooltip sticky direction="top">
+            Cabagan Geofence Boundary
+          </Tooltip>
+        </Polygon>
 
         {/* Render one marker per officer; position updates every 4 seconds */}
         {personnel.map((member) => (

@@ -21,11 +21,12 @@
  *     statusMessage:  string     — human-readable status for the side panel
  *   }
  */
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import policePersonnel1 from '../assets/policepersonnel1.jpg'
 import policePersonnel2 from '../assets/policepersonnel2.png'
 import policePersonnel3 from '../assets/policepersonnel3.jpg'
 import { socket } from '../services/socket'
+import { isInsideCabagan } from '../utils/cabaganGeofence'
 
 const personnelPhotos = {
   'pcpl-001': policePersonnel1,
@@ -63,12 +64,19 @@ const withCanonicalProfile = (member) => ({
 
 const normalizePersonnel = (member) => withCanonicalProfile(withPersonnelPhoto(member))
 
+const withBoundaryStatus = (member) => ({
+  ...member,
+  isInsideCabagan: isInsideCabagan(member.latitude, member.longitude),
+})
+
+const normalizeAndTagPersonnel = (member) => withBoundaryStatus(normalizePersonnel(member))
+
 /**
  * Fallback data shown in the map before the first server message arrives.
  * Prevents an empty map flash on initial page load.
  */
 const defaultPersonnel = [
-  normalizePersonnel({
+  normalizeAndTagPersonnel({
     id: 'pcpl-001',
     locationName: 'Cabagan Public Market',
     latitude: 17.4271,
@@ -76,7 +84,7 @@ const defaultPersonnel = [
     status: 'On Patrol',
     lastUpdated: new Date().toISOString(),
   }),
-  normalizePersonnel({
+  normalizeAndTagPersonnel({
     id: 'psms-002',
     locationName: 'Cabagan Municipal Hall',
     latitude: 17.4213,
@@ -84,7 +92,7 @@ const defaultPersonnel = [
     status: 'Monitoring',
     lastUpdated: new Date().toISOString(),
   }),
-  normalizePersonnel({
+  normalizeAndTagPersonnel({
     id: 'pltc-003',
     locationName: 'Barangay Centro',
     latitude: 17.4189,
@@ -103,6 +111,24 @@ export const usePersonnelRealtime = () => {
 
   // Human-readable status shown in the SidePanel status card
   const [statusMessage, setStatusMessage] = useState('Listening for live GPS updates...')
+
+  // Tracks which personnel are currently outside Cabagan to avoid repeated alerts
+  const outsidePersonnelIdsRef = useRef(new Set())
+
+  const evaluateGeofence = (list) => {
+    const outsidePersonnel = list.filter((member) => !member.isInsideCabagan)
+    const outsideIds = new Set(outsidePersonnel.map((member) => member.id))
+    const newlyOutside = outsidePersonnel.filter((member) => !outsidePersonnelIdsRef.current.has(member.id))
+    const hasRecovered = outsidePersonnel.length === 0 && outsidePersonnelIdsRef.current.size > 0
+
+    outsidePersonnelIdsRef.current = outsideIds
+
+    return {
+      outsidePersonnel,
+      newlyOutside,
+      hasRecovered,
+    }
+  }
 
   useEffect(() => {
     // ── Event handlers ──────────────────────────────────────────────────────
@@ -124,7 +150,14 @@ export const usePersonnelRealtime = () => {
      */
     const onBootstrap = (payload) => {
       if (Array.isArray(payload) && payload.length > 0) {
-        setPersonnel(payload.map(normalizePersonnel))
+        const normalized = payload.map(normalizeAndTagPersonnel)
+        setPersonnel(normalized)
+
+        const { outsidePersonnel } = evaluateGeofence(normalized)
+        if (outsidePersonnel.length > 0) {
+          const names = outsidePersonnel.map((member) => member.name).join(', ')
+          setStatusMessage(`⚠️ Geofence Alert: ${names} outside Cabagan boundary.`)
+        }
       }
     }
 
@@ -135,7 +168,20 @@ export const usePersonnelRealtime = () => {
      */
     const onUpdate = (payload) => {
       if (Array.isArray(payload) && payload.length > 0) {
-        setPersonnel(payload.map(normalizePersonnel))
+        const normalized = payload.map(normalizeAndTagPersonnel)
+        setPersonnel(normalized)
+
+        const { newlyOutside, hasRecovered } = evaluateGeofence(normalized)
+
+        if (newlyOutside.length > 0) {
+          const names = newlyOutside.map((member) => member.name).join(', ')
+          setStatusMessage(`⚠️ Geofence Alert: ${names} outside Cabagan boundary.`)
+          return
+        }
+
+        if (hasRecovered) {
+          setStatusMessage('✅ All tracked personnel are back inside Cabagan boundary.')
+        }
       }
     }
 
@@ -180,10 +226,15 @@ export const usePersonnelRealtime = () => {
 
   // Derive the count from the array so consumers don't have to compute it
   const personnelCount = useMemo(() => personnel.length, [personnel])
+  const outOfBoundaryPersonnel = useMemo(
+    () => personnel.filter((member) => !member.isInsideCabagan),
+    [personnel]
+  )
 
   return {
     personnel,
     personnelCount,
+    outOfBoundaryPersonnel,
     isConnected,
     statusMessage,
   }

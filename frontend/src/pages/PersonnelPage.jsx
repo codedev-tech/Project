@@ -10,7 +10,7 @@
  *   so changing names in backend/src/server.js updates this page automatically.
  */
 
-import { usePersonnelContext } from '../context/PersonnelContext'
+import { usePersonnelContext } from '../context/usePersonnelContext'
 
 /** Maps each deployment status string to its CSS badge colour. */
 const statusColor = {

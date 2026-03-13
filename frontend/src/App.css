@@ -743,6 +743,17 @@
   margin: 0.6rem 0 0;
 }
 
+.geofence-alert-pill {
+  display: inline-block;
+  margin-top: 0.65rem;
+  padding: 0.25rem 0.6rem;
+  border-radius: 999px;
+  font-size: 0.74rem;
+  font-weight: 700;
+  color: #991b1b;
+  background: #fee2e2;
+}
+
 .list-card {
   min-height: 0;
 }
@@ -781,6 +792,13 @@
 
 .list-item-btn small {
   color: #64748b;
+}
+
+.out-of-boundary-label {
+  display: inline-block;
+  margin-top: 0.15rem;
+  color: #b91c1c !important;
+  font-weight: 700;
 }
 
 .map-panel {
@@ -861,6 +879,12 @@
 .police-marker--default {
   color: #3b82f6;
   background: #3b82f6;
+}
+
+.police-marker--out-of-boundary {
+  color: #dc2626;
+  background: #dc2626;
+  border-radius: 50%;
 }
 
 @keyframes pulseMarker {

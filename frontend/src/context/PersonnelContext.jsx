@@ -17,11 +17,8 @@
  *     statusMessage:  string     — human-readable connection / event status for the UI
  *   }
  */
-import { createContext, useContext } from 'react'
 import { usePersonnelRealtime } from '../hooks/usePersonnelRealtime'
-
-// Create the context — value is null until <PersonnelProvider> mounts
-const PersonnelContext = createContext(null)
+import { PersonnelContext } from './PersonnelContextObject'
 
 /**
  * PersonnelProvider
@@ -43,11 +40,3 @@ export function PersonnelProvider({ children }) {
   )
 }
 
-/**
- * usePersonnelContext
- * Convenience hook — shorthand for useContext(PersonnelContext).
- * Must be used inside a component that is a descendant of <PersonnelProvider>.
- *
- * @returns {{ personnel, personnelCount, isConnected, statusMessage }}
- */
-export const usePersonnelContext = () => useContext(PersonnelContext)

@@ -15,7 +15,7 @@
  *   statusMessage     {string}   — human-readable status from the socket hook
  *   onSelectPersonnel {Function} — called with the officer object when a list item is clicked
  */
-function SidePanel({ personnel, personnelCount, statusMessage, onSelectPersonnel }) {
+function SidePanel({ personnel, personnelCount, statusMessage, outOfBoundaryPersonnelCount, onSelectPersonnel }) {
   return (
     <section className="side-panel">
 
@@ -30,6 +30,11 @@ function SidePanel({ personnel, personnelCount, statusMessage, onSelectPersonnel
       <article className="status-card">
         <h2>System Status</h2>
         <p>{statusMessage}</p>
+        {outOfBoundaryPersonnelCount > 0 && (
+          <span className="geofence-alert-pill">
+            {outOfBoundaryPersonnelCount} personnel outside Cabagan
+          </span>
+        )}
       </article>
 
       {/* ── List Card: clickable roster of active officers ── */}
@@ -59,6 +64,9 @@ function SidePanel({ personnel, personnelCount, statusMessage, onSelectPersonnel
                 <div className="list-item-info">
                   <span>{member.name}</span>
                   <small>{member.rank}</small>
+                  {member.isInsideCabagan === false && (
+                    <small className="out-of-boundary-label">Outside Cabagan boundary</small>
+                  )}
                 </div>
               </button>
             </li>

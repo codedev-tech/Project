@@ -21,7 +21,7 @@
  */
 import { useEffect, useState } from 'react'
 import { Outlet } from 'react-router-dom'
-import { usePersonnelContext } from '../context/PersonnelContext'
+import { usePersonnelContext } from '../context/usePersonnelContext'
 import NavSidebar from './NavSidebar'
 import TopBar from './TopBar'
 

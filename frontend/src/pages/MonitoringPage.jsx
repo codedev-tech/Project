@@ -19,12 +19,12 @@ import { useState } from 'react'
 import ProfileModal from '../components/ProfileModal'
 import PersonnelMap from '../components/PersonnelMap'
 import SidePanel from '../components/SidePanel'
-import { usePersonnelContext } from '../context/PersonnelContext'
+import { usePersonnelContext } from '../context/usePersonnelContext'
 import { emitBackupRequest } from '../services/socket'
 
 function MonitoringPage() {
   // Pull live officer data and status from the shared context
-  const { personnel, personnelCount, statusMessage } = usePersonnelContext()
+  const { personnel, personnelCount, statusMessage, outOfBoundaryPersonnel } = usePersonnelContext()
 
   // Track which officer's profile modal is open (null = modal hidden)
   const [selectedPersonnel, setSelectedPersonnel] = useState(null)
@@ -49,6 +49,7 @@ function MonitoringPage() {
           personnel={personnel}
           personnelCount={personnelCount}
           statusMessage={statusMessage}
+          outOfBoundaryPersonnelCount={outOfBoundaryPersonnel.length}
           onSelectPersonnel={setSelectedPersonnel}
         />
         <PersonnelMap personnel={personnel} onSelectPersonnel={setSelectedPersonnel} />
