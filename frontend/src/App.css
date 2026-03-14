@@ -882,19 +882,17 @@
 }
 
 .police-marker--out-of-boundary {
-  color: #dc2626;
-  background: #dc2626;
+  color: #201f1f;
+  background: #201f1f;
   border-radius: 50%;
 }
 
 @keyframes pulseMarker {
   0%, 100% { transform: scale(1); }
-  50% { transform: scale(1.06); }
+  50% { transform: scale(1.1); }
 }
 
-/* ============================================================
-   PROFILE MODAL
-   ============================================================ */
+/*PROFILE MODAL */
 
 .modal-backdrop {
   position: fixed;
@@ -1237,12 +1235,18 @@
   }
 }
 
-/* ============================================================
-   TOPBAR — right-side wrapper
-   ============================================================ */
+/* TOPBAR — right-side wrapper */
 
-.topbar-left h1 { margin: 0; font-size: 1.15rem; }
-.topbar-left p  { margin: 0.15rem 0 0; color: #475569; font-size: 0.82rem; }
+.topbar-left h1 {
+   margin: 0;
+   font-size: 1.5rem;
+   font-weight: 700;
+ }
+.topbar-left p  {
+   margin: 0.15rem 0 0; 
+   color: #475569; 
+   font-size: 0.82rem; 
+  }
 
 .topbar-right {
   display: flex;
@@ -1266,12 +1270,19 @@
   transition: background var(--transition-base), color var(--transition-base);
   flex-shrink: 0;
 }
-.icon-btn:hover { background: #f1f5f9; color: #0f172a; }
-.icon-btn svg   { width: 17px; height: px; }
+.icon-btn:hover { 
+  background: #f1f5f9; color: #0f172a; 
+  border: .5px solid #dbe2ea39;
+  border-radius: 50%;
+}
+.icon-btn svg {
+   width: 20px; height: 20px; 
+   align-items: center;
+   justify-content: center;
+   display: flex;
+  }
 
-/* ============================================================
-   SUPERVISOR PROFILE — button + dropdown
-   ============================================================ */
+/*SUPERVISOR PROFILE — button + dropdown*/
 
 .supervisor-profile { position: relative; }
 
