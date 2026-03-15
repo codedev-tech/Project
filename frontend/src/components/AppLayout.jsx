@@ -6,11 +6,11 @@
  * the current page into React Router's <Outlet /> placeholder.
  *
  * Visual structure:
- *   ┌──────────────┬──────────────────────────────────┐
- *   │  NavSidebar  │  TopBar (sticky, always visible)  │
- *   │   (fixed)    ├──────────────────────────────────┤
- *   │              │  <Outlet /> — active page here    │
- *   └──────────────┴──────────────────────────────────┘
+ *   
+ *     NavSidebar   TopBar (sticky, always visible)
+ *      (fixed)  
+ *                  <Outlet /> — active page here    
+ *   
  *
  * The `collapsed` state toggles the sidebar between:
  *   - Full width  (220 px) — shows icon + label

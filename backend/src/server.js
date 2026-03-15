@@ -153,7 +153,7 @@ io.on('connection', (socket) => {
 setInterval(() => {
 	updatePersonnelPositions();
 	io.emit('personnel:update', personnel);
-}, 4000);
+}, 2000);
 
 // Start the HTTP + Socket.IO server
 server.listen(PORT, () => {

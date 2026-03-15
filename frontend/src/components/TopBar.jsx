@@ -36,15 +36,15 @@ function TopBar({ isConnected, isDark, onToggleDark }) {
   }, [dropdownOpen])
 
   return (
-    <header className="top-bar">
+    <header className="top-bar d-flex align-items-center justify-content-between">
       {/* ── Left: system branding ── */}
       <div className="topbar-left">
-        <h1>BantayCabagan</h1>
-        <p>IoT-Based Real-Time GPS Monitoring for Police Personnel</p>
+        <h1 className="m-0 fs-4 fw-bold">BantayCabagan</h1>
+        <p className="mb-0 mt-1 text-secondary small">IoT-Based Real-Time GPS Monitoring for Police Personnel</p>
       </div>
 
       {/* ── Right: status pill + dark mode toggle + supervisor profile ── */}
-      <div className="topbar-right">
+      <div className="topbar-right d-flex align-items-center gap-2 flex-shrink-0">
         {/* Live / Offline indicator */}
         <span className={`connection-pill ${isConnected ? 'online' : 'offline'}`}>
           {isConnected ? 'Live' : 'Offline'}
@@ -92,7 +92,7 @@ function TopBar({ isConnected, isDark, onToggleDark }) {
                 e.target.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(SUPERVISOR.name)}&background=1d4ed8&color=fff&size=64`
               }}
             />
-            <div className="supervisor-info">
+            <div className="supervisor-info d-flex flex-column align-items-start">
               <span className="supervisor-name">{SUPERVISOR.name}</span>
               <span className="supervisor-role">{SUPERVISOR.role}</span>
             </div>
@@ -105,7 +105,7 @@ function TopBar({ isConnected, isDark, onToggleDark }) {
           {dropdownOpen && (
             <div className="supervisor-dropdown">
               {/* Header row with larger photo + name + rank */}
-              <div className="dropdown-profile-header">
+              <div className="dropdown-profile-header d-flex align-items-center">
                 <img
                   src={SUPERVISOR.photoUrl}
                   alt={SUPERVISOR.name}

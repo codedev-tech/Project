@@ -27,14 +27,14 @@ const statusColor = {
 
 function ReportsPage() {
   return (
-    <div className="page-container fade-in">
-      <div className="page-header">
-        <h2 className="page-title">Reports</h2>
-        <p className="page-subtitle">Patrol and incident documentation</p>
+    <div className="page-container fade-in p-3 p-md-4">
+      <div className="page-header mb-4">
+        <h2 className="page-title mb-0 fw-bold">Reports</h2>
+        <p className="page-subtitle text-body-secondary mb-0">Patrol and incident documentation</p>
       </div>
 
-      <div className="widget-card slide-up">
-        <table className="personnel-table">
+      <div className="widget-card slide-up p-3 overflow-auto no-scrollbar">
+        <table className="personnel-table table align-middle mb-0">
           <thead>
             <tr>
               <th>Report ID</th>

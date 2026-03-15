@@ -32,8 +32,8 @@ function AppRoutes() {
         The matched page component is rendered into AppLayout's <Outlet />.
       */}
       <Route element={<AppLayout />}>
-        <Route path="/" element={<DashboardPage />} />
-        <Route path="/monitoring" element={<MonitoringPage />} />
+        <Route path="/" element={<MonitoringPage />} />
+        <Route path="/monitoring" element={<DashboardPage/>} />
         <Route path="/analytics" element={<AnalyticsPage />} />
         <Route path="/personnel" element={<PersonnelPage />} />
         <Route path="/reports" element={<ReportsPage />} />

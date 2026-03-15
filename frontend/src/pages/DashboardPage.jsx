@@ -34,28 +34,31 @@ const activityFeed = [
 
 function DashboardPage() {
   return (
-    <div className="page-container fade-in">
-      <div className="page-header">
-        <h2 className="page-title">Dashboard</h2>
-        <p className="page-subtitle">Overview of today&apos;s field operations</p>
+    <div className="page-container fade-in p-3 p-md-4">
+      <div className="page-header mb-4">
+        <h2 className="page-title mb-0 fw-bold">Dashboard</h2>
+        <p className="page-subtitle text-body-secondary mb-0">Overview of today&apos;s field operations</p>
       </div>
 
-      <div className="stats-grid">
+      <div className="stats-grid row g-3 mb-3 mx-0">
         {stats.map((stat) => (
-          <div key={stat.label} className="stat-card slide-up">
+          <div key={stat.label} className="col-12 col-sm-6 col-xl-3">
+            <div className="stat-card slide-up p-3 h-100">
             <p className="stat-card__label">{stat.label}</p>
             <strong className="stat-card__value">{stat.value}</strong>
             <span className={`stat-card__change ${stat.up ? 'up' : 'down'}`}>
               {stat.change} vs yesterday
             </span>
+            </div>
           </div>
         ))}
       </div>
 
-      <div className="dashboard-widgets">
-        <div className="widget-card slide-up">
+      <div className="dashboard-widgets row g-3 mx-0">
+        <div className="col-12 col-xl-6">
+          <div className="widget-card slide-up p-3 h-100">
           <h3 className="widget-title">Recent Activity</h3>
-          <ul className="activity-feed">
+          <ul className="activity-feed list-unstyled mb-0">
             {activityFeed.map((item) => (
               <li key={item.id} className="activity-item">
                 <span className="activity-dot" />
@@ -66,9 +69,11 @@ function DashboardPage() {
               </li>
             ))}
           </ul>
+          </div>
         </div>
 
-        <div className="widget-card slide-up">
+        <div className="col-12 col-xl-6">
+          <div className="widget-card slide-up p-3 h-100">
           <h3 className="widget-title">Patrol Coverage</h3>
           <div className="coverage-bars">
             {[
@@ -86,6 +91,7 @@ function DashboardPage() {
                 <span className="coverage-pct">{row.pct}%</span>
               </div>
             ))}
+          </div>
           </div>
         </div>
       </div>

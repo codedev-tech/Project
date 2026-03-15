@@ -13,14 +13,15 @@
  */
 function SettingsPage() {
   return (
-    <div className="page-container fade-in">
-      <div className="page-header">
-        <h2 className="page-title">Settings</h2>
-        <p className="page-subtitle">System configuration and preferences</p>
+    <div className="page-container fade-in p-3 p-md-4">
+      <div className="page-header mb-4">
+        <h2 className="page-title mb-0 fw-bold">Settings</h2>
+        <p className="page-subtitle text-body-secondary mb-0">System configuration and preferences</p>
       </div>
 
-      <div className="settings-grid">
-        <div className="widget-card slide-up">
+      <div className="settings-grid row g-3 mx-0">
+        <div className="col-12 col-xl-6">
+          <div className="widget-card slide-up p-3 h-100">
           <h3 className="widget-title">General</h3>
           <div className="settings-row">
             <div>
@@ -36,9 +37,11 @@ function SettingsPage() {
             </div>
             <input className="settings-input" type="number" defaultValue={4000} />
           </div>
+          </div>
         </div>
 
-        <div className="widget-card slide-up">
+        <div className="col-12 col-xl-6">
+          <div className="widget-card slide-up p-3 h-100">
           <h3 className="widget-title">Realtime Server</h3>
           <div className="settings-row">
             <div>
@@ -56,6 +59,7 @@ function SettingsPage() {
               <input type="checkbox" defaultChecked />
               <span className="toggle-knob" />
             </label>
+          </div>
           </div>
         </div>
       </div>

@@ -25,27 +25,29 @@ const MAX_PATROLS = 30
 
 function AnalyticsPage() {
   return (
-    <div className="page-container fade-in">
-      <div className="page-header">
-        <h2 className="page-title">Analytics</h2>
-        <p className="page-subtitle">Weekly patrol and incident trends</p>
+    <div className="page-container fade-in p-3 p-md-4">
+      <div className="page-header mb-4">
+        <h2 className="page-title mb-0 fw-bold">Analytics</h2>
+        <p className="page-subtitle text-body-secondary mb-0">Weekly patrol and incident trends</p>
       </div>
 
-      <div className="stats-grid">
+      <div className="stats-grid row g-3 mb-3 mx-0">
         {[
           { label: 'Patrols This Week', value: '129' },
           { label: 'Total Incidents', value: '21' },
           { label: 'Backup Requests', value: '8' },
           { label: 'Resolved Cases', value: '19' },
         ].map((stat) => (
-          <div key={stat.label} className="stat-card slide-up">
+          <div key={stat.label} className="col-12 col-sm-6 col-xl-3">
+            <div className="stat-card slide-up p-3 h-100">
             <p className="stat-card__label">{stat.label}</p>
             <strong className="stat-card__value">{stat.value}</strong>
+            </div>
           </div>
         ))}
       </div>
 
-      <div className="widget-card slide-up">
+      <div className="widget-card slide-up p-3">
         <h3 className="widget-title">Patrol vs Incidents — This Week</h3>
         <div className="bar-chart">
           {chartBars.map((bar) => (

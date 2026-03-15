@@ -28,16 +28,16 @@ function ProfileModal({ selectedPersonnel, onClose, onRequestBackup }) {
 
   return createPortal(
     // Semi-transparent backdrop — clicking outside the card dismisses the modal
-    <div className="modal-backdrop" role="presentation" onClick={onClose}>
+    <div className="modal-backdrop d-flex align-items-center justify-content-center p-3" role="presentation" onClick={onClose}>
 
       {/*
         The card itself — stopPropagation prevents backdrop's onClick
         from firing when the user clicks anywhere inside the card.
       */}
-      <div className="profile-modal" role="dialog" onClick={(event) => event.stopPropagation()}>
+      <div className="profile-modal" role="dialog" aria-modal="true" onClick={(event) => event.stopPropagation()}>
 
         {/* Circular officer photo centered at the top of the card */}
-        <div className="profile-photo-wrap">
+        <div className="profile-photo-wrap d-flex justify-content-center mb-3">
           <img
             src={selectedPersonnel.photoUrl}
             alt={selectedPersonnel.name}
@@ -49,26 +49,26 @@ function ProfileModal({ selectedPersonnel, onClose, onRequestBackup }) {
         </div>
 
         {/* Officer name and rank header */}
-        <h3>{selectedPersonnel.name}</h3>
-        <p className="rank">{selectedPersonnel.rank}</p>
+        <h3 className="mb-0 fw-bold">{selectedPersonnel.name}</h3>
+        <p className="rank mb-3">{selectedPersonnel.rank}</p>
 
         {/* Detail rows — label on left, value on right */}
-        <div className="profile-row">
+        <div className="profile-row d-flex justify-content-between align-items-center">
           <span>Location</span>
           <strong>{selectedPersonnel.locationName}</strong>
         </div>
-        <div className="profile-row">
+        <div className="profile-row d-flex justify-content-between align-items-center">
           <span>Status</span>
           <strong>{selectedPersonnel.status}</strong>
         </div>
-        <div className="profile-row">
+        <div className="profile-row d-flex justify-content-between align-items-center">
           <span>Last Updated</span>
           {/* formatTime converts the ISO timestamp to a human-readable local time */}
           <strong>{formatTime(selectedPersonnel.lastUpdated)}</strong>
         </div>
 
         {/* Action buttons */}
-        <div className="modal-actions">
+        <div className="modal-actions d-flex justify-content-end gap-2 mt-3">
           <button type="button" className="secondary-btn" onClick={onClose}>
             Close
           </button>

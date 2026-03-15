@@ -15,10 +15,45 @@
  *   Tile source: OpenStreetMap — free, no API key required
  *   Marker:      Custom L.divIcon so the pulsing CSS animation applies correctly
  */
-import { MapContainer, Marker, Polygon, TileLayer, Tooltip } from 'react-leaflet'
+import { MapContainer, Marker, Polygon, TileLayer, Tooltip, useMap } from 'react-leaflet'
+import { useEffect } from 'react'
 import L from 'leaflet'
 import { CABAGAN_BOUNDARY_COORDS, CABAGAN_CENTER } from '../utils/cabaganGeofence'
 
+const OUTER_MASK_BOUNDS = [
+  [18.2, 120.8],
+  [18.2, 122.8],
+  [16.2, 122.8],
+  [16.2, 120.8],
+]
+
+const OUTSIDE_MASK_STYLE = {
+  fillColor: '#dc2626',
+  fillOpacity: 0.12,
+  stroke: false,
+  fillRule: 'evenodd',
+}
+
+const GEOFENCE_BORDER_STYLE = {
+  color: '#dc2626',
+  weight: 2,
+  fillOpacity: 0,
+  dashArray: '8 7',
+}
+
+function FocusCabaganOnLoad() {
+  const map = useMap()
+
+  useEffect(() => {
+    map.fitBounds(CABAGAN_BOUNDARY_COORDS, {
+      padding: [28, 28],
+      maxZoom: 14,
+      animate: false,
+    })
+  }, [map])
+
+  return null
+}
 /**
  * Converts the current personnel status to a visual marker class.
  * Requested mapping:
@@ -84,27 +119,25 @@ const createPoliceMarkerIcon = (member) => {
 
 function PersonnelMap({ personnel, onSelectPersonnel }) {
   return (
-    <section className="map-panel">
+    <section className="map-panel h-100 p-2">
       {/*
         MapContainer is mounted once and never re-mounts — Leaflet manages
         its own internal state. Markers are updated by React re-rendering
         the <Marker> components with new position props.
       */}
-      <MapContainer center={CABAGAN_CENTER} zoom={14} scrollWheelZoom className="map-view">
+      <MapContainer center={CABAGAN_CENTER} zoom={14} scrollWheelZoom className="map-view h-100 w-100 rounded-3">
+        <FocusCabaganOnLoad />
+
         {/* OpenStreetMap tile layer — loads the map imagery */}
         <TileLayer
           attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
           url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
         />
 
+        <Polygon positions={[OUTER_MASK_BOUNDS, CABAGAN_BOUNDARY_COORDS]} pathOptions={OUTSIDE_MASK_STYLE} />
         <Polygon
           positions={CABAGAN_BOUNDARY_COORDS}
-          pathOptions={{
-            color: '#dc2626',
-            weight: 4,
-            fillOpacity: .1,
-            dashArray: '8 7',
-          }}
+          pathOptions={GEOFENCE_BORDER_STYLE}
         >
           <Tooltip sticky direction="top">
             Cabagan Geofence Boundary

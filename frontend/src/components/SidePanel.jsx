@@ -17,19 +17,19 @@
  */
 function SidePanel({ personnel, personnelCount, statusMessage, outOfBoundaryPersonnelCount, onSelectPersonnel }) {
   return (
-    <section className="side-panel">
+    <section className="side-panel d-grid gap-3 h-100">
 
       {/* ── Metric Card: how many officers are currently on the map ── */}
-      <article className="metric-card">
-        <h2>Personnel on Field</h2>
-        <strong>{personnelCount}</strong>
-        <small>Units tracked in real-time</small>
+      <article className="metric-card p-3">
+        <h2 className="mb-0 text-uppercase fw-bold small">Personnel on Field</h2>
+        <strong className="d-block mt-2">{personnelCount}</strong>
+        <small className="text-body-secondary">Units tracked in real-time</small>
       </article>
 
       {/* ── Status Card: last socket event or connection message ── */}
-      <article className="status-card">
-        <h2>System Status</h2>
-        <p>{statusMessage}</p>
+      <article className="status-card p-3">
+        <h2 className="mb-0 text-uppercase fw-bold small">System Status</h2>
+        <p className="mt-2 mb-0 text-body-secondary">{statusMessage}</p>
         {outOfBoundaryPersonnelCount > 0 && (
           <span className="geofence-alert-pill">
             {outOfBoundaryPersonnelCount} personnel outside Cabagan
@@ -38,9 +38,9 @@ function SidePanel({ personnel, personnelCount, statusMessage, outOfBoundaryPers
       </article>
 
       {/* ── List Card: clickable roster of active officers ── */}
-      <article className="list-card">
-        <h2>Active Personnel</h2>
-        <ul>
+      <article className="list-card p-3 d-flex flex-column min-vh-0">
+        <h2 className="mb-0 text-uppercase fw-bold small">Active Personnel</h2>
+        <ul className="mt-3 mb-0 ps-0 list-unstyled d-grid gap-2 overflow-auto">
           {personnel.map((member) => (
             <li key={member.id}>
               {/*
@@ -49,7 +49,7 @@ function SidePanel({ personnel, personnelCount, statusMessage, outOfBoundaryPers
               */}
               <button
                 type="button"
-                className="list-item-btn"
+                className="list-item-btn d-flex align-items-center text-start w-100"
                 onClick={() => onSelectPersonnel(member)}
               >
                 {/* Small circular photo on the left */}
@@ -61,9 +61,9 @@ function SidePanel({ personnel, personnelCount, statusMessage, outOfBoundaryPers
                     e.target.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(member.name)}&background=1d4ed8&color=fff&size=64`
                   }}
                 />
-                <div className="list-item-info">
-                  <span>{member.name}</span>
-                  <small>{member.rank}</small>
+                <div className="list-item-info flex-grow-1 overflow-hidden d-flex flex-column gap-1">
+                  <span className="fw-semibold text-truncate">{member.name}</span>
+                  <small className="text-body-secondary">{member.rank}</small>
                   {member.isInsideCabagan === false && (
                     <small className="out-of-boundary-label">Outside Cabagan boundary</small>
                   )}
