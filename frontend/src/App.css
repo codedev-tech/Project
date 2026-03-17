@@ -802,7 +802,7 @@
 }
 
 .list-item-btn:hover {
-  border-color: #2563eb;
+  border-color: #2564ebbd;
   background: #eff6ff;
   transform: translateX(3px);
 }
