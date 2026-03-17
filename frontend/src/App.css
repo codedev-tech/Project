@@ -96,11 +96,12 @@
   display: flex;
   flex-direction: column;
   gap: 0.2rem;
-  padding: 0.75rem 0.5rem;
+  padding: 0.75rem 0.5rem 0.75rem 0.9rem;
   overflow-y: auto;
 }
 
 .nav-sidebar__link {
+  position: relative;
   display: flex;
   align-items: center;
   gap: 0.75rem;
@@ -111,20 +112,49 @@
   font-size: 0.9rem;
   font-weight: 500;
   white-space: nowrap;
-  overflow: hidden;
+  overflow: visible;
   transition: background var(--transition-base), color var(--transition-base),
     transform 0.15s ease;
+}
+
+.nav-sidebar__link::before {
+  content: '';
+  position: absolute;
+  left: -0.55rem;
+  top: 50%;
+  width: 4px;
+  height: calc(100% - 0.9rem);
+  border-radius: 999px;
+  background: linear-gradient(180deg, #93c5fd 0%, #2563eb 100%);
+  transform: translateY(-50%) scaleY(0.2);
+  transform-origin: center;
+  opacity: 0;
+  box-shadow: 0 0 0 rgba(37, 99, 235, 0);
+  transition: transform 0.5s ease, opacity 0.2s ease, box-shadow 0.28s ease;
 }
 
 .nav-sidebar__link:hover {
   background: rgba(255, 255, 255, 0.06);
   color: #e2e8f0;
-  transform: translateX(2px);
+  transform: translateX(4px);
+}
+
+.nav-sidebar__link:hover::before {
+  opacity: 1;
+  transform: translateY(-50%) scaleY(1);
+  box-shadow: 0 0 8px rgba(37, 99, 235, 0.3);
 }
 
 .nav-sidebar__link--active {
   background: var(--sidebar-active-bg);
   color: var(--sidebar-active-color);
+  transform: translateX(4px);
+}
+
+.nav-sidebar__link--active::before {
+  opacity: 1;
+  transform: translateY(-50%) scaleY(1);
+  box-shadow: 0 0 14px rgba(37, 99, 235, 0.45);
 }
 
 .nav-sidebar__icon {
@@ -133,6 +163,15 @@
   height: 20px;
   display: grid;
   place-items: center;
+  transition: transform 0.22s ease, color var(--transition-base);
+}
+
+.nav-sidebar__link:hover .nav-sidebar__icon {
+  transform: scale(1.08);
+}
+
+.nav-sidebar__link--active .nav-sidebar__icon {
+  transform: scale(1.12);
 }
 
 .nav-sidebar__icon svg {
@@ -219,9 +258,7 @@
   color: #991b1b;
 }
 
-/* ============================================================
-   ANIMATION KEYFRAMES
-   ============================================================ */
+/* ANIMATION KEYFRAMES*/
 
 @keyframes fadeIn {
   from { opacity: 0; }
@@ -651,9 +688,7 @@
   transform: translateX(20px);
 }
 
-/* ============================================================
-   MONITORING / LIVE MAP PAGE
-   ============================================================ */
+/*MONITORING / LIVE MAP PAGE*/
 
 .monitoring-shell {
   flex: 1;
@@ -900,7 +935,7 @@
 
 @keyframes scaleIn {
   from { opacity: 0; transform: translateY(-15px); }
-  to   { opacity: 1; transform: translayeY(0px); }
+  to   { opacity: 1; transform: translateY(0px); }
   
 }
 .profile-modal h3 {
@@ -973,9 +1008,7 @@
   box-shadow: 0 8px 20px -6px rgba(220, 38, 38, 0.5);
 }
 
-/* ============================================================
-   RESPONSIVE
-   ============================================================ */
+/*RESPONSIVE */
 
 @media (max-width: 860px) {
   .layout-body {
