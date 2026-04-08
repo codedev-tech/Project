@@ -1,3 +1,4 @@
+
 import { FlatList, RefreshControl, StyleSheet, Text, View } from 'react-native';
 
 import { COLORS } from '../constants/theme';
