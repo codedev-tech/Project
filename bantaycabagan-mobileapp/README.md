@@ -1,50 +1,45 @@
-# Welcome to your Expo app 👋
+# BantayCabagan Mobile App
 
-This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
+React Native + Expo (TypeScript) mobile client scaffold for rapid feature development and Expo Go testing.
 
-## Get started
+## Quick Start
 
 1. Install dependencies
 
-   ```bash
-   npm install
-   ```
-
-2. Start the app
-
-   ```bash
-   npx expo start
-   ```
-
-In the output, you'll find options to open the app in a
-
-- [development build](https://docs.expo.dev/develop/development-builds/introduction/)
-- [Android emulator](https://docs.expo.dev/workflow/android-studio-emulator/)
-- [iOS simulator](https://docs.expo.dev/workflow/ios-simulator/)
-- [Expo Go](https://expo.dev/go), a limited sandbox for trying out app development with Expo
-
-You can start developing by editing the files inside the **app** directory. This project uses [file-based routing](https://docs.expo.dev/router/introduction).
-
-## Get a fresh project
-
-When you're ready, run:
-
 ```bash
-npm run reset-project
+npm install
 ```
 
-This command will move the starter code to the **app-example** directory and create a blank **app** directory where you can start developing.
+1. Start Expo server
 
-## Learn more
+```bash
+npx expo start
+```
 
-To learn more about developing your project with Expo, look at the following resources:
+1. Open Expo Go on your phone and scan the QR code.
 
-- [Expo documentation](https://docs.expo.dev/): Learn fundamentals, or go into advanced topics with our [guides](https://docs.expo.dev/guides).
-- [Learn Expo tutorial](https://docs.expo.dev/tutorial/introduction/): Follow a step-by-step tutorial where you'll create a project that runs on Android, iOS, and the web.
+## Current Sample Features
 
-## Join the community
+- Dashboard summary cards (Total, In Field, At Base, Off Duty)
+- Monitoring list with pull-to-refresh behavior
+- Settings sample action to reload mock data
+- Typed data models, hooks, services, and reusable components
 
-Join our community of developers creating universal apps.
+## Project Structure
 
-- [Expo on GitHub](https://github.com/expo/expo): View our open source platform and contribute.
-- [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.
+- App.tsx: App shell and tab switching
+- src/constants: Theme tokens
+- src/types: Shared TypeScript models
+- src/data: Mock data source
+- src/services: Data fetching layer
+- src/hooks: State and data orchestration
+- src/components: Reusable UI components
+- src/screens: Feature screens
+- src/utils: Utility helpers
+
+## Next Development Steps
+
+- Replace mock service with backend API calls
+- Add authentication screen flow
+- Add map screen (personnel tracking)
+- Wire push notifications and location updates
