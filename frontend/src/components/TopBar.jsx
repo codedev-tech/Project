@@ -116,7 +116,7 @@ function TopBar({ isConnected, isDark, onToggleDark }) {
                 />
                 <div>
                   <strong className="dropdown-name">{SUPERVISOR.name}</strong>
-                  <span className="dropdown-rank">{SUPERVISOR.rank}</span>
+                  <span className="dropdown-rank mt-2">{SUPERVISOR.rank}</span>
                 </div>
               </div>
 
