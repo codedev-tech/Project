@@ -8,15 +8,17 @@
  * Route map:
  *   /             → DashboardPage   (overview stats & recent activity)
  *   /monitoring   → MonitoringPage  (live Leaflet map with GPS markers)
- *   /analytics    → AnalyticsPage   (weekly patrol vs incident chart)
+ *   /analytics    → AnalyticsPage   (data insights: weekly patrol vs incident chart)
+ *   /assign-area  → AssignAreaPage  (deployment and patrol area assignments)
  *   /personnel    → PersonnelPage   (officer roster table)
- *   /reports      → ReportsPage     (filed patrol & incident reports)
+ *   /reports      → ReportsPage     (data insights: filed patrol & incident reports)
  *   /settings     → SettingsPage    (system configuration)
  *   *             → redirect to /   (catch-all for unknown URLs)
  */
 import { Navigate, Route, Routes } from 'react-router-dom'
 import AppLayout from '../components/AppLayout'
 import AnalyticsPage from '../pages/AnalyticsPage'
+import AssignAreaPage from '../pages/AssignAreaPage'
 import DashboardPage from '../pages/DashboardPage'
 import MonitoringPage from '../pages/MonitoringPage'
 import PersonnelPage from '../pages/PersonnelPage'
@@ -35,6 +37,7 @@ function AppRoutes() {
         <Route path="/" element={<MonitoringPage />} />
         <Route path="/monitoring" element={<DashboardPage/>} />
         <Route path="/analytics" element={<AnalyticsPage />} />
+        <Route path="/assign-area" element={<AssignAreaPage />} />
         <Route path="/personnel" element={<PersonnelPage />} />
         <Route path="/reports" element={<ReportsPage />} />
         <Route path="/settings" element={<SettingsPage />} />

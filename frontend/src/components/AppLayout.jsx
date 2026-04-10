@@ -39,7 +39,14 @@ function AppLayout() {
   }, [isDark])
 
   // Pull the live connection flag from shared context to pass to TopBar
-  const { isConnected } = usePersonnelContext()
+  const {
+    isConnected,
+    notifications,
+    unreadNotificationCount,
+    markNotificationAsRead,
+    markAllNotificationsRead,
+    clearNotifications,
+  } = usePersonnelContext()
 
   return (
     // Adding layout-root--collapsed shifts the body margin to match icon-only width
@@ -50,7 +57,16 @@ function AppLayout() {
       {/* Scrollable body area — left margin adjusts automatically via CSS transition */}
       <div className="layout-body">
         {/* Sticky top bar — shows system title and live/offline connection pill */}
-        <TopBar isConnected={isConnected} isDark={isDark} onToggleDark={() => setIsDark((v) => !v)} />
+        <TopBar
+          isConnected={isConnected}
+          isDark={isDark}
+          onToggleDark={() => setIsDark((v) => !v)}
+          notifications={notifications}
+          unreadNotificationCount={unreadNotificationCount}
+          onReadNotification={markNotificationAsRead}
+          onReadAllNotifications={markAllNotificationsRead}
+          onClearNotifications={clearNotifications}
+        />
 
         {/* React Router renders the matched child page component here */}
         <Outlet />

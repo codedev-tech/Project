@@ -11,7 +11,7 @@
  *   isDark       {boolean}  — true when dark mode is active
  *   onToggleDark {Function} — called to flip the dark mode flag
  */
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 
 /** Hardcoded supervisor — replace with an auth context in production */
 const SUPERVISOR = {
@@ -21,19 +21,119 @@ const SUPERVISOR = {
   photoUrl: 'https://randomuser.me/api/portraits/men/56.jpg',
 }
 
-function TopBar({ isConnected, isDark, onToggleDark }) {
-  const [dropdownOpen, setDropdownOpen] = useState(false)
-  const dropdownRef = useRef(null)
+const getNotificationTypeLabel = (type) => {
+  switch (type) {
+    case 'geofence':
+      return 'Geofence'
+    case 'emergency':
+      return 'Emergency'
+    case 'warning':
+      return 'Warning'
+    case 'success':
+      return 'Update'
+    default:
+      return 'System'
+  }
+}
 
-  // Close the dropdown whenever the user clicks outside of it
+const getNotificationTypeClass = (type) => {
+  switch (type) {
+    case 'geofence':
+      return 'notification-type-pill--geofence'
+    case 'emergency':
+      return 'notification-type-pill--emergency'
+    case 'warning':
+      return 'notification-type-pill--warning'
+    case 'success':
+      return 'notification-type-pill--success'
+    default:
+      return 'notification-type-pill--system'
+  }
+}
+
+const formatNotificationTimestamp = (isoValue) => {
+  if (!isoValue) return 'Just now'
+
+  return new Intl.DateTimeFormat('en-PH', {
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit',
+  }).format(new Date(isoValue))
+}
+
+function TopBar({
+  isConnected,
+  isDark,
+  onToggleDark,
+  notifications = [],
+  unreadNotificationCount = 0,
+  onReadNotification,
+  onReadAllNotifications,
+  onClearNotifications,
+}) {
+  const [dropdownOpen, setDropdownOpen] = useState(false)
+  const [notificationOpen, setNotificationOpen] = useState(false)
+  const [notificationSearch, setNotificationSearch] = useState('')
+  const dropdownRef = useRef(null)
+  const notificationRef = useRef(null)
+
+  const filteredNotifications = useMemo(() => {
+    const searchQuery = notificationSearch.trim().toLowerCase()
+    if (!searchQuery) {
+      return notifications
+    }
+
+    const searchTokens = searchQuery.split(/\s+/).filter(Boolean)
+
+    return notifications.filter((notification) => {
+      const typeAliases = []
+      if (notification.type === 'emergency') {
+        typeAliases.push('backup', 'request', 'backup request', 'emergency')
+      }
+      if (notification.type === 'geofence') {
+        typeAliases.push('outside', 'boundary', 'outside boundary', 'geofence', 'cabagan')
+      }
+
+      const searchableTimestamp = formatNotificationTimestamp(notification.timestamp).toLowerCase()
+      const searchableText = [
+        notification.title,
+        notification.message,
+        notification.type,
+        typeAliases.join(' '),
+        searchableTimestamp,
+      ]
+        .join(' ')
+        .toLowerCase()
+
+      return searchTokens.every((token) => searchableText.includes(token))
+    })
+  }, [notificationSearch, notifications])
+
+  // Close open top-bar popovers whenever user clicks outside of them
   useEffect(() => {
-    if (!dropdownOpen) return
+    if (!dropdownOpen && !notificationOpen) return
+
     const handler = (e) => {
       if (!dropdownRef.current?.contains(e.target)) setDropdownOpen(false)
+      if (!notificationRef.current?.contains(e.target)) setNotificationOpen(false)
     }
+
     document.addEventListener('mousedown', handler)
     return () => document.removeEventListener('mousedown', handler)
-  }, [dropdownOpen])
+  }, [dropdownOpen, notificationOpen])
+
+  const toggleNotificationDropdown = () => {
+    setNotificationOpen((prevOpen) => {
+      const nextOpen = !prevOpen
+      if (nextOpen) {
+        onReadAllNotifications?.()
+        setDropdownOpen(false)
+      }
+      return nextOpen
+    })
+  }
 
   return (
     <header className="top-bar d-flex align-items-center justify-content-between">
@@ -43,7 +143,7 @@ function TopBar({ isConnected, isDark, onToggleDark }) {
         <p className="mb-0 mt-1 text-secondary small">IoT-Based Real-Time GPS Monitoring for Police Personnel</p>
       </div>
 
-      {/* ── Right: status pill + dark mode toggle + supervisor profile ── */}
+      {/* ── Right: status pill + theme + notifications + supervisor profile ── */}
       <div className="topbar-right d-flex align-items-center gap-2 flex-shrink-0">
         {/* Live / Offline indicator */}
         <span className={`connection-pill ${isConnected ? 'online' : 'offline'}`}>
@@ -60,27 +160,111 @@ function TopBar({ isConnected, isDark, onToggleDark }) {
         >
           {isDark ? (
             /* Sun — click to go back to light mode */
-            <svg viewBox="0 0 30 30" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <circle cx="12" cy="12" r="5" />
-              <line x1="12" y1="1" x2="12" y2="3" /><line x1="12" y1="21" x2="12" y2="23" />
-              <line x1="4.22" y1="4.22" x2="5.64" y2="5.64" /><line x1="18.36" y1="18.36" x2="19.78" y2="19.78" />
-              <line x1="1" y1="12" x2="3" y2="12" /><line x1="21" y1="12" x2="23" y2="12" />
-              <line x1="4.22" y1="19.78" x2="5.64" y2="18.36" /><line x1="18.36" y1="5.64" x2="19.78" y2="4.22" />
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <circle cx="12" cy="12" r="4.5" />
+              <line x1="12" y1="2" x2="12" y2="4.5" /><line x1="12" y1="19.5" x2="12" y2="22" />
+              <line x1="4.93" y1="4.93" x2="6.7" y2="6.7" /><line x1="17.3" y1="17.3" x2="19.07" y2="19.07" />
+              <line x1="2" y1="12" x2="4.5" y2="12" /><line x1="19.5" y1="12" x2="22" y2="12" />
+              <line x1="4.93" y1="19.07" x2="6.7" y2="17.3" /><line x1="17.3" y1="6.7" x2="19.07" y2="4.93" />
             </svg>
           ) : (
             /* Moon — click to enable dark mode */
-            <svg viewBox="0 0 30 30" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" />
             </svg>
           )}
         </button>
+
+        {/* Notifications — appears before profile and shows unread green dot */}
+        <div className="notification-wrapper" ref={notificationRef}>
+          <button
+            type="button"
+            className={`icon-btn notification-btn ${unreadNotificationCount > 0 ? 'has-unread' : ''}`}
+            onClick={toggleNotificationDropdown}
+            aria-label="Open notifications"
+            aria-expanded={notificationOpen}
+            aria-haspopup="true"
+            title="Notifications"
+          >
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M15 17h5l-1.4-1.4A2 2 0 0 1 18 14.2V11a6 6 0 0 0-5-5.9V4a1 1 0 1 0-2 0v1.1A6 6 0 0 0 6 11v3.2a2 2 0 0 1-.6 1.4L4 17h5" />
+              <path d="M9 17a3 3 0 0 0 6 0" />
+            </svg>
+            {unreadNotificationCount > 0 && <span className="notification-dot" aria-hidden="true" />}
+          </button>
+
+          {notificationOpen && (
+            <div className="notification-dropdown">
+              <div className="notification-dropdown__header">
+                <div>
+                  <strong>Notifications</strong>
+                  <small>{filteredNotifications.length} of {notifications.length} shown</small>
+                </div>
+                <div className="notification-dropdown__actions">
+                  <button type="button" onClick={onReadAllNotifications} disabled={notifications.length === 0}>
+                    Mark all read
+                  </button>
+                  <button type="button" onClick={onClearNotifications} disabled={notifications.length === 0}>
+                    Clear
+                  </button>
+                </div>
+              </div>
+
+              <div className="notification-search">
+                <input
+                  type="search"
+                  value={notificationSearch}
+                  onChange={(e) => setNotificationSearch(e.target.value)}
+                  placeholder="Search backup, outside boundary, personnel name, or date"
+                  aria-label="Search notifications"
+                />
+              </div>
+
+              {notifications.length === 0 ? (
+                <div className="notification-empty-state">
+                  <strong>No notifications yet</strong>
+                  <p className="mb-0">Geofence alerts and system updates will appear here.</p>
+                </div>
+              ) : filteredNotifications.length === 0 ? (
+                <div className="notification-empty-state">
+                  <strong>No matched notifications</strong>
+                  <p className="mb-0">Try searching a different keyword, personnel name, or date.</p>
+                </div>
+              ) : (
+                <ul className="notification-list">
+                  {filteredNotifications.map((notification) => (
+                    <li key={notification.id}>
+                      <button
+                        type="button"
+                        className={`notification-item ${notification.isRead ? '' : 'notification-item--unread'}`}
+                        onClick={() => onReadNotification?.(notification.id)}
+                      >
+                        <div className="notification-item__meta">
+                          <span className={`notification-type-pill ${getNotificationTypeClass(notification.type)}`}>
+                            {getNotificationTypeLabel(notification.type)}
+                          </span>
+                          <small>{formatNotificationTimestamp(notification.timestamp)}</small>
+                        </div>
+                        <strong className="notification-item__title">{notification.title}</strong>
+                        <p className="notification-item__message mb-0">{notification.message}</p>
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          )}
+        </div>
 
         {/* Supervisor account — photo + name + role, opens dropdown on click */}
         <div className="supervisor-profile" ref={dropdownRef}>
           <button
             type="button"
             className="supervisor-btn"
-            onClick={() => setDropdownOpen((v) => !v)}
+            onClick={() => {
+              setDropdownOpen((v) => !v)
+              setNotificationOpen(false)
+            }}
             aria-expanded={dropdownOpen}
             aria-haspopup="true"
           >
@@ -132,7 +316,7 @@ function TopBar({ isConnected, isDark, onToggleDark }) {
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                   <circle cx="12" cy="12" r="3" /><path d="M19.07 4.93a10 10 0 0 1 0 14.14M4.93 4.93a10 10 0 0 0 0 14.14" />
                 </svg>
-                Settings
+                Account Management
               </button>
 
               <div className="dropdown-divider" />

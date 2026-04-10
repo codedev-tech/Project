@@ -21,7 +21,7 @@
  *     statusMessage:  string     — human-readable status for the side panel
  *   }
  */
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import policePersonnel1 from '../assets/policepersonnel1.jpg'
 import policePersonnel2 from '../assets/policepersonnel2.png'
 import policePersonnel3 from '../assets/policepersonnel3.jpg'
@@ -71,6 +71,8 @@ const withBoundaryStatus = (member) => ({
 
 const normalizeAndTagPersonnel = (member) => withBoundaryStatus(normalizePersonnel(member))
 
+const MAX_NOTIFICATIONS = 25
+
 /**
  * Fallback data shown in the map before the first server message arrives.
  * Prevents an empty map flash on initial page load.
@@ -112,8 +114,45 @@ export const usePersonnelRealtime = () => {
   // Human-readable status shown in the SidePanel status card
   const [statusMessage, setStatusMessage] = useState('Listening for live GPS updates...')
 
+  // Shared top-bar notifications for geofence, emergency, and system events
+  const [notifications, setNotifications] = useState([])
+
   // Tracks which personnel are currently outside Cabagan to avoid repeated alerts
   const outsidePersonnelIdsRef = useRef(new Set())
+  const notificationSequenceRef = useRef(0)
+
+  const createNotification = useCallback((payload) => {
+    notificationSequenceRef.current += 1
+
+    return {
+      id: `notif-${Date.now()}-${notificationSequenceRef.current}`,
+      type: payload.type || 'info',
+      title: payload.title || 'System Update',
+      message: payload.message || 'A new update is available.',
+      timestamp: payload.timestamp || new Date().toISOString(),
+      isRead: false,
+    }
+  }, [])
+
+  const addNotification = useCallback((payload) => {
+    setNotifications((prev) => [createNotification(payload), ...prev].slice(0, MAX_NOTIFICATIONS))
+  }, [createNotification])
+
+  const markNotificationAsRead = useCallback((notificationId) => {
+    setNotifications((prev) => prev.map((notification) => (
+      notification.id === notificationId
+        ? { ...notification, isRead: true }
+        : notification
+    )))
+  }, [])
+
+  const markAllNotificationsRead = useCallback(() => {
+    setNotifications((prev) => prev.map((notification) => ({ ...notification, isRead: true })))
+  }, [])
+
+  const clearNotifications = useCallback(() => {
+    setNotifications([])
+  }, [])
 
   const evaluateGeofence = (list) => {
     const outsidePersonnel = list.filter((member) => !member.isInsideCabagan)
@@ -136,11 +175,21 @@ export const usePersonnelRealtime = () => {
     const onConnect = () => {
       setIsConnected(true)
       setStatusMessage('Connected to BantayCabagan realtime server.')
+      addNotification({
+        type: 'success',
+        title: 'Realtime Connected',
+        message: 'Live GPS stream is now active.',
+      })
     }
 
     const onDisconnect = () => {
       setIsConnected(false)
       setStatusMessage('Connection lost. Attempting to reconnect...')
+      addNotification({
+        type: 'warning',
+        title: 'Connection Lost',
+        message: 'Realtime server disconnected. Reconnecting automatically.',
+      })
     }
 
     /**
@@ -156,8 +205,21 @@ export const usePersonnelRealtime = () => {
         const { outsidePersonnel } = evaluateGeofence(normalized)
         if (outsidePersonnel.length > 0) {
           const names = outsidePersonnel.map((member) => member.name).join(', ')
-          setStatusMessage(`⚠️ Geofence Alert: ${names} outside Cabagan boundary.`)
+          const message = `⚠️ Geofence Alert: ${names} outside Cabagan boundary.`
+          setStatusMessage(message)
+          addNotification({
+            type: 'geofence',
+            title: 'Geofence Alert',
+            message,
+          })
+          return
         }
+
+        addNotification({
+          type: 'info',
+          title: 'Personnel Sync Complete',
+          message: 'Initial personnel locations were loaded successfully.',
+        })
       }
     }
 
@@ -175,12 +237,24 @@ export const usePersonnelRealtime = () => {
 
         if (newlyOutside.length > 0) {
           const names = newlyOutside.map((member) => member.name).join(', ')
-          setStatusMessage(`⚠️ Geofence Alert: ${names} outside Cabagan boundary.`)
+          const message = `⚠️ Geofence Alert: ${names} outside Cabagan boundary.`
+          setStatusMessage(message)
+          addNotification({
+            type: 'geofence',
+            title: 'Geofence Alert',
+            message,
+          })
           return
         }
 
         if (hasRecovered) {
-          setStatusMessage('✅ All tracked personnel are back inside Cabagan boundary.')
+          const message = '✅ All tracked personnel are back inside Cabagan boundary.'
+          setStatusMessage(message)
+          addNotification({
+            type: 'success',
+            title: 'Geofence Normalized',
+            message,
+          })
         }
       }
     }
@@ -191,7 +265,13 @@ export const usePersonnelRealtime = () => {
      * Tells the supervisor whether the request was processed successfully.
      */
     const onEmergencyStatus = (payload) => {
-      setStatusMessage(payload?.message || 'Emergency status updated.')
+      const message = payload?.message || 'Emergency status updated.'
+      setStatusMessage(message)
+      addNotification({
+        type: 'emergency',
+        title: 'Emergency Status',
+        message,
+      })
     }
 
     /**
@@ -200,7 +280,13 @@ export const usePersonnelRealtime = () => {
      * Every logged-in supervisor sees who requested backup and where.
      */
     const onEmergencyAlert = (payload) => {
-      setStatusMessage(payload?.message || 'Emergency alert triggered.')
+      const message = payload?.message || 'Emergency alert triggered.'
+      setStatusMessage(message)
+      addNotification({
+        type: 'emergency',
+        title: 'Emergency Alert',
+        message,
+      })
     }
 
     // ── Register listeners on the shared socket instance ────────────────────
@@ -222,13 +308,17 @@ export const usePersonnelRealtime = () => {
       socket.off('emergency:status', onEmergencyStatus)
       socket.off('emergency:alert', onEmergencyAlert)
     }
-  }, []) // Empty deps — subscribe once on mount, clean up on unmount
+  }, [addNotification]) // Subscribe once and keep notification handler current
 
   // Derive the count from the array so consumers don't have to compute it
   const personnelCount = useMemo(() => personnel.length, [personnel])
   const outOfBoundaryPersonnel = useMemo(
     () => personnel.filter((member) => !member.isInsideCabagan),
     [personnel]
+  )
+  const unreadNotificationCount = useMemo(
+    () => notifications.filter((notification) => !notification.isRead).length,
+    [notifications]
   )
 
   return {
@@ -237,5 +327,10 @@ export const usePersonnelRealtime = () => {
     outOfBoundaryPersonnel,
     isConnected,
     statusMessage,
+    notifications,
+    unreadNotificationCount,
+    markNotificationAsRead,
+    markAllNotificationsRead,
+    clearNotifications,
   }
 }

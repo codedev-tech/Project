@@ -41,15 +41,26 @@ const GEOFENCE_BORDER_STYLE = {
   dashArray: '8 7',
 }
 
+const focusCabaganView = (map, animate = false) => {
+  map.fitBounds(CABAGAN_BOUNDARY_COORDS, {
+    padding: [18, 18],
+    maxZoom: 13,
+    animate,
+  })
+}
+
 function FocusCabaganOnLoad() {
   const map = useMap()
 
   useEffect(() => {
-    map.fitBounds(CABAGAN_BOUNDARY_COORDS, {
-      padding: [28, 28],
-      maxZoom: 14,
-      animate: false,
-    })
+    focusCabaganView(map)
+
+    const handleFocusLiveMap = () => focusCabaganView(map, true)
+    window.addEventListener('focus-live-map', handleFocusLiveMap)
+
+    return () => {
+      window.removeEventListener('focus-live-map', handleFocusLiveMap)
+    }
   }, [map])
 
   return null
