@@ -5,7 +5,7 @@
  * child components:
  *   ─ SidePanel    (left) — metrics, status, and clickable officer list
  *   ─ PersonnelMap (center) — full-width Leaflet map with live GPS markers
- *   ─ ProfileModal (overlay) — officer details + Request Backup button
+ *   ─ ProfileModal (overlay) — officer details
  *
  * State:
  *   selectedPersonnel — the officer currently shown in the modal, or null
@@ -13,14 +13,12 @@
  * Data flow:
  *   PersonnelContext → hook → this page → props down to child components
  *   User clicks marker/name → setSelectedPersonnel → modal opens
- *   User clicks Backup → requestBackup() → emitBackupRequest → socket event
  */
 import { useState } from 'react'
 import ProfileModal from '../components/ProfileModal'
 import PersonnelMap from '../components/PersonnelMap'
 import SidePanel from '../components/SidePanel'
 import { usePersonnelContext } from '../context/usePersonnelContext'
-import { emitBackupRequest } from '../services/socket'
 
 function MonitoringPage() {
   // Pull live officer data and status from the shared context
@@ -28,18 +26,25 @@ function MonitoringPage() {
 
   // Track which officer's profile modal is open (null = modal hidden)
   const [selectedPersonnel, setSelectedPersonnel] = useState(null)
+  const [focusTarget, setFocusTarget] = useState(null)
 
-  /**
-   * requestBackup
-   * Fires an emergency socket event for the currently selected officer.
-   * The server will broadcast it to ALL connected clients.
-   */
-  const requestBackup = () => {
-    if (!selectedPersonnel) {
+  const handleLocatePersonnel = (member) => {
+    if (!member) {
       return
     }
 
-    emitBackupRequest(selectedPersonnel.id)
+    if (typeof member.latitude !== 'number' || typeof member.longitude !== 'number') {
+      return
+    }
+
+    setFocusTarget({
+        latitude: member.latitude,
+        longitude: member.longitude,
+        timestamp: Date.now(),
+      })
+
+    // Close the modal so the supervisor can immediately see the map focus result.
+    setSelectedPersonnel(null)
   }
 
   return (
@@ -52,13 +57,17 @@ function MonitoringPage() {
           outOfBoundaryPersonnelCount={outOfBoundaryPersonnel.length}
           onSelectPersonnel={setSelectedPersonnel}
         />
-        <PersonnelMap personnel={personnel} onSelectPersonnel={setSelectedPersonnel} />
+        <PersonnelMap
+          personnel={personnel}
+          onSelectPersonnel={setSelectedPersonnel}
+          focusTarget={focusTarget}
+        />
       </main>
 
       <ProfileModal
         selectedPersonnel={selectedPersonnel}
         onClose={() => setSelectedPersonnel(null)}
-        onRequestBackup={requestBackup}
+        onLocate={() => handleLocatePersonnel(selectedPersonnel)}
       />
     </div>
   )

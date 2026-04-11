@@ -6,6 +6,7 @@
  * do not need an in-app signup flow.
  */
 import { useMemo, useState } from 'react'
+import ConfirmModal from '../components/ConfirmModal'
 
 const roles = ['Officer', 'Supervisor', 'Dispatcher']
 const trackingModes = ['On-duty only', 'Always on', 'Manual enable']
@@ -112,6 +113,7 @@ function SettingsPage() {
   const [accountSearch, setAccountSearch] = useState('')
   const [editingAccountId, setEditingAccountId] = useState(null)
   const [activeAccountView, setActiveAccountView] = useState('create')
+  const [pendingDeleteAccount, setPendingDeleteAccount] = useState(null)
   const [formErrors, setFormErrors] = useState({})
   const [formMessage, setFormMessage] = useState('')
   const [formMessageKind, setFormMessageKind] = useState('success')
@@ -301,19 +303,29 @@ function SettingsPage() {
       return
     }
 
-    const confirmed = window.confirm(`Delete account for ${account.fullName}? This action cannot be undone.`)
-    if (!confirmed) {
+    setPendingDeleteAccount(account)
+  }
+
+  const handleConfirmDeleteAccount = () => {
+    if (!pendingDeleteAccount) {
       return
     }
 
-    setCreatedAccounts((prev) => prev.filter((item) => item.id !== accountId))
+    const account = pendingDeleteAccount
+    setPendingDeleteAccount(null)
 
-    if (editingAccountId === accountId) {
+    setCreatedAccounts((prev) => prev.filter((item) => item.id !== account.id))
+
+    if (editingAccountId === account.id) {
       resetFormToCreate()
     }
 
     setFormMessage(`${account.fullName} account deleted.`)
     setFormMessageKind('success')
+  }
+
+  const handleCancelDeleteAccount = () => {
+    setPendingDeleteAccount(null)
   }
 
   const handleSubmitAccount = (event) => {
@@ -740,6 +752,18 @@ function SettingsPage() {
           </div>
         </div>
       </div>
+
+      <ConfirmModal
+        open={Boolean(pendingDeleteAccount)}
+        title="Delete Account?"
+        message={pendingDeleteAccount
+          ? `Delete account for ${pendingDeleteAccount.fullName}? This action cannot be undone.`
+          : ''}
+        confirmLabel="Delete"
+        cancelLabel="Cancel"
+        onConfirm={handleConfirmDeleteAccount}
+        onCancel={handleCancelDeleteAccount}
+      />
     </div>
   )
 }

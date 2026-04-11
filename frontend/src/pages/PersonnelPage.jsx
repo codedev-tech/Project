@@ -12,12 +12,15 @@
 
 import { usePersonnelContext } from '../context/usePersonnelContext'
 
-/** Maps each deployment status string to its CSS badge colour. */
-const statusColor = {
-  'On Patrol': '#16a34a',
-  'Monitoring': '#2563eb',
-  'Responding': '#d97706',
+/** Maps normalized duty status strings to badge colours. */
+const dutyStatusColor = {
+  'On Duty': '#16a34a',
   'Off Duty': '#94a3b8',
+}
+
+const getDutyStatus = (status = '') => {
+  const normalized = status.trim().toLowerCase()
+  return normalized === 'off duty' ? 'Off Duty' : 'On Duty'
 }
 
 function PersonnelPage() {
@@ -41,7 +44,10 @@ function PersonnelPage() {
             </tr>
           </thead>
           <tbody>
-            {personnel.map((officer) => (
+            {personnel.map((officer) => {
+              const dutyStatus = getDutyStatus(officer.status)
+
+              return (
               <tr key={officer.id} className="personnel-row">
                 <td className="personnel-badge">{officer.badge ?? officer.id.toUpperCase()}</td>
                 <td>{officer.name}</td>
@@ -49,13 +55,14 @@ function PersonnelPage() {
                 <td>
                   <span
                     className="status-badge"
-                    style={{ '--status-color': statusColor[officer.status] ?? '#94a3b8' }}
+                    style={{ '--status-color': dutyStatusColor[dutyStatus] ?? '#94a3b8' }}
                   >
-                    {officer.status}
+                    {dutyStatus}
                   </span>
                 </td>
               </tr>
-            ))}
+              )
+            })}
           </tbody>
         </table>
       </div>

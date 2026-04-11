@@ -113,7 +113,7 @@ const dataInsightsItems = [
 
 function NavSidebar({ collapsed, onToggle }) {
   const location = useLocation()
-  const [dataInsightsOpen, setDataInsightsOpen] = useState(true)
+  const [dataInsightsOpen, setDataInsightsOpen] = useState(false)
 
   const isCompact = useSyncExternalStore(
     (onStoreChange) => {

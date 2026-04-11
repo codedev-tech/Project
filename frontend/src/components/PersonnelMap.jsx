@@ -44,7 +44,7 @@ const GEOFENCE_BORDER_STYLE = {
 const focusCabaganView = (map, animate = false) => {
   map.fitBounds(CABAGAN_BOUNDARY_COORDS, {
     padding: [18, 18],
-    maxZoom: 13,
+    maxZoom: 19,
     animate,
   })
 }
@@ -56,12 +56,37 @@ function FocusCabaganOnLoad() {
     focusCabaganView(map)
 
     const handleFocusLiveMap = () => focusCabaganView(map, true)
+
     window.addEventListener('focus-live-map', handleFocusLiveMap)
 
     return () => {
       window.removeEventListener('focus-live-map', handleFocusLiveMap)
     }
   }, [map])
+
+  return null
+}
+
+function FocusPersonnelOnLocate({ focusTarget }) {
+  const map = useMap()
+
+  useEffect(() => {
+    if (!focusTarget) {
+      return
+    }
+
+    const latitude = Number(focusTarget.latitude)
+    const longitude = Number(focusTarget.longitude)
+
+    if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) {
+      return
+    }
+
+    map.flyTo([latitude, longitude], 19, {
+      animate: true,
+      duration: 1.5,
+    })
+  }, [focusTarget, map])
 
   return null
 }
@@ -128,7 +153,7 @@ const createPoliceMarkerIcon = (member) => {
   })
 }
 
-function PersonnelMap({ personnel, onSelectPersonnel }) {
+function PersonnelMap({ personnel, onSelectPersonnel, focusTarget }) {
   return (
     <section className="map-panel h-100 p-2">
       {/*
@@ -138,6 +163,7 @@ function PersonnelMap({ personnel, onSelectPersonnel }) {
       */}
       <MapContainer center={CABAGAN_CENTER} zoom={14} scrollWheelZoom className="map-view h-100 w-100 rounded-3">
         <FocusCabaganOnLoad />
+        <FocusPersonnelOnLocate focusTarget={focusTarget} />
 
         {/* OpenStreetMap tile layer — loads the map imagery */}
         <TileLayer

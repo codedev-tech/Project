@@ -1,4 +1,5 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { Fragment, useEffect, useMemo, useRef, useState } from 'react'
+import ConfirmModal from '../components/ConfirmModal'
 import { usePersonnelContext } from '../context/usePersonnelContext'
 
 const patrolAreas = [
@@ -57,6 +58,38 @@ const formatDateTime = (isoValue) => {
   }).format(new Date(isoValue))
 }
 
+const createEmptyAssignmentForm = () => ({
+  personnelIds: [],
+  patrolArea: patrolAreas[0],
+  shiftStart: '',
+  notes: '',
+})
+
+const toDateTimeLocalValue = (value) => {
+  if (!value) {
+    return ''
+  }
+
+  if (/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(value)) {
+    return value
+  }
+
+  const parsedDate = new Date(value)
+  if (Number.isNaN(parsedDate.getTime())) {
+    return ''
+  }
+
+  const year = parsedDate.getFullYear()
+  const month = String(parsedDate.getMonth() + 1).padStart(2, '0')
+  const day = String(parsedDate.getDate()).padStart(2, '0')
+  const hours = String(parsedDate.getHours()).padStart(2, '0')
+  const minutes = String(parsedDate.getMinutes()).padStart(2, '0')
+
+  return `${year}-${month}-${day}T${hours}:${minutes}`
+}
+
+const resolveGroupId = (assignment) => assignment.groupId || `${assignment.patrolArea}__${assignment.assignedAt || 'none'}`
+
 function AssignAreaPage() {
   const { personnel = [] } = usePersonnelContext()
 
@@ -72,16 +105,17 @@ function AssignAreaPage() {
     return fallbackPersonnel
   }, [personnel])
 
-  const [assignmentForm, setAssignmentForm] = useState({
-    personnelIds: [],
-    patrolArea: patrolAreas[0],
-    shiftStart: '',
-    notes: '',
-  })
+  const [assignmentForm, setAssignmentForm] = useState(createEmptyAssignmentForm)
   const [personnelSearch, setPersonnelSearch] = useState('')
   const [patrolAreaSearch, setPatrolAreaSearch] = useState('')
   const [isPatrolAreaOpen, setIsPatrolAreaOpen] = useState(false)
   const [assignments, setAssignments] = useState([])
+  const [editingAssignmentId, setEditingAssignmentId] = useState(null)
+  const [editingGroupId, setEditingGroupId] = useState(null)
+  const [pendingDeleteAssignment, setPendingDeleteAssignment] = useState(null)
+  const [pendingDeleteGroup, setPendingDeleteGroup] = useState(null)
+  const [deploymentSearch, setDeploymentSearch] = useState('')
+  const [openGroupMenuId, setOpenGroupMenuId] = useState(null)
   const [assignMessage, setAssignMessage] = useState('')
   const nextAssignmentIdRef = useRef(1)
   const patrolAreaPickerRef = useRef(null)
@@ -115,6 +149,36 @@ function AssignAreaPage() {
     return patrolAreas.filter((area) => area.toLowerCase().includes(searchQuery))
   }, [patrolAreaSearch])
 
+  const groupedAssignments = useMemo(() => {
+    const groupsMap = new Map()
+
+    assignments.forEach((assignment) => {
+      const groupId = resolveGroupId(assignment)
+
+      if (!groupsMap.has(groupId)) {
+        groupsMap.set(groupId, {
+          groupId,
+          patrolArea: assignment.patrolArea,
+          assignments: [],
+        })
+      }
+
+      groupsMap.get(groupId).assignments.push(assignment)
+    })
+
+    return Array.from(groupsMap.values())
+  }, [assignments])
+
+  const filteredGroupedAssignments = useMemo(() => {
+    const query = deploymentSearch.trim().toLowerCase()
+
+    if (!query) {
+      return groupedAssignments
+    }
+
+    return groupedAssignments.filter((group) => group.patrolArea.toLowerCase().includes(query))
+  }, [deploymentSearch, groupedAssignments])
+
   useEffect(() => {
     if (!isPatrolAreaOpen) {
       return undefined
@@ -138,6 +202,24 @@ function AssignAreaPage() {
       patrolAreaSearchInputRef.current.focus()
     }
   }, [isPatrolAreaOpen])
+
+  useEffect(() => {
+    if (!openGroupMenuId) {
+      return undefined
+    }
+
+    const handlePointerDownOutsideGroupMenu = (event) => {
+      if (!(event.target instanceof Element) || !event.target.closest('.assignment-group-menu')) {
+        setOpenGroupMenuId(null)
+      }
+    }
+
+    document.addEventListener('pointerdown', handlePointerDownOutsideGroupMenu)
+
+    return () => {
+      document.removeEventListener('pointerdown', handlePointerDownOutsideGroupMenu)
+    }
+  }, [openGroupMenuId])
 
   const handleFormChange = (field) => (event) => {
     setAssignmentForm((prev) => ({
@@ -181,17 +263,115 @@ function AssignAreaPage() {
   const areAllFilteredSelected = filteredPersonnelOptions.length > 0
     && filteredPersonnelOptions.every((item) => activePersonnelIds.includes(item.id))
 
+  const resetAssignmentForm = () => {
+    setAssignmentForm(createEmptyAssignmentForm())
+    setPersonnelSearch('')
+    setPatrolAreaSearch('')
+    setIsPatrolAreaOpen(false)
+  }
+
   const handleAssignPersonnel = (event) => {
     event.preventDefault()
 
     if (selectedPersonnelMembers.length === 0 || !assignmentForm.patrolArea.trim()) {
+      setAssignMessage('Select at least one personnel and a patrol area before saving.')
+      return
+    }
+
+    if (editingGroupId) {
+      const currentGroupAssignments = assignments.filter((assignment) => resolveGroupId(assignment) === editingGroupId)
+
+      if (currentGroupAssignments.length === 0) {
+        setAssignMessage('Selected deployment group is no longer available.')
+        setEditingGroupId(null)
+        resetAssignmentForm()
+        return
+      }
+
+      const selectedMemberIds = new Set(selectedPersonnelMembers.map((member) => member.id))
+      let nextAssignmentNumber = nextAssignmentIdRef.current
+
+      const nextGroupAssignments = selectedPersonnelMembers.map((member) => {
+        const existingAssignment = currentGroupAssignments.find((item) => item.personnelId === member.id)
+
+        if (existingAssignment) {
+          return {
+            ...existingAssignment,
+            patrolArea: assignmentForm.patrolArea.trim(),
+            shiftStart: assignmentForm.shiftStart,
+            notes: assignmentForm.notes.trim(),
+          }
+        }
+
+        const createdAssignment = {
+          id: `ASG-${nextAssignmentNumber}`,
+          groupId: editingGroupId,
+          personnelId: member.id,
+          personnelName: member.name,
+          rank: member.rank,
+          patrolArea: assignmentForm.patrolArea.trim(),
+          shiftStart: assignmentForm.shiftStart,
+          notes: assignmentForm.notes.trim(),
+          assignedAt: new Date().toISOString(),
+        }
+
+        nextAssignmentNumber += 1
+        return createdAssignment
+      })
+
+      nextAssignmentIdRef.current = nextAssignmentNumber
+
+      setAssignments((prev) => {
+        const nonGroupAssignments = prev.filter((item) => resolveGroupId(item) !== editingGroupId)
+        return [...nextGroupAssignments, ...nonGroupAssignments]
+      })
+
+      setAssignMessage(
+        `${nextGroupAssignments.length} personnel reassigned to ${assignmentForm.patrolArea.trim()}.`
+      )
+      setEditingGroupId(null)
+      setEditingAssignmentId(null)
+      resetAssignmentForm()
+      return
+    }
+
+    if (editingAssignmentId) {
+      if (selectedPersonnelMembers.length !== 1) {
+        setAssignMessage('Editing requires exactly one personnel selection.')
+        return
+      }
+
+      const selectedMember = selectedPersonnelMembers[0]
+
+      setAssignments((prev) => prev.map((item) => {
+        if (item.id !== editingAssignmentId) {
+          return item
+        }
+
+        return {
+          ...item,
+          personnelId: selectedMember.id,
+          personnelName: selectedMember.name,
+          rank: selectedMember.rank,
+          patrolArea: assignmentForm.patrolArea.trim(),
+          shiftStart: assignmentForm.shiftStart,
+          notes: assignmentForm.notes.trim(),
+        }
+      }))
+
+      setAssignMessage(`${selectedMember.name} reassigned to ${assignmentForm.patrolArea.trim()}.`)
+      setEditingAssignmentId(null)
+      setEditingGroupId(null)
+      resetAssignmentForm()
       return
     }
 
     const assignedAt = new Date().toISOString()
     const assignmentBatchSeed = nextAssignmentIdRef.current
+    const groupId = `GRP-${Date.now()}-${assignmentBatchSeed}`
     const newAssignments = selectedPersonnelMembers.map((member, index) => ({
       id: `ASG-${assignmentBatchSeed + index}`,
+      groupId,
       personnelId: member.id,
       personnelName: member.name,
       rank: member.rank,
@@ -210,11 +390,7 @@ function AssignAreaPage() {
       : `${newAssignments.length} personnel assigned to ${newAssignments[0].patrolArea}.`
 
     setAssignMessage(feedback)
-    setAssignmentForm((prev) => ({
-      ...prev,
-      shiftStart: '',
-      notes: '',
-    }))
+    resetAssignmentForm()
   }
 
   const handleSelectPatrolArea = (area) => {
@@ -226,8 +402,127 @@ function AssignAreaPage() {
     setIsPatrolAreaOpen(false)
   }
 
-  const handleRemoveAssignment = (assignmentId) => {
+  const handleEditAssignment = (assignment) => {
+    setEditingAssignmentId(assignment.id)
+    setEditingGroupId(null)
+    setAssignmentForm({
+      personnelIds: [assignment.personnelId],
+      patrolArea: assignment.patrolArea || patrolAreas[0],
+      shiftStart: toDateTimeLocalValue(assignment.shiftStart),
+      notes: assignment.notes || '',
+    })
+    setPersonnelSearch('')
+    setAssignMessage(`Re-assigning ${assignment.id}. Update details then click "Save Re-assignment".`)
+  }
+
+  const handleEditGroup = (groupId) => {
+    const groupAssignments = assignments.filter((assignment) => resolveGroupId(assignment) === groupId)
+
+    if (groupAssignments.length === 0) {
+      return
+    }
+
+    const firstAssignment = groupAssignments[0]
+
+    setEditingGroupId(groupId)
+    setEditingAssignmentId(null)
+    setAssignmentForm({
+      personnelIds: groupAssignments.map((assignment) => assignment.personnelId),
+      patrolArea: firstAssignment.patrolArea || patrolAreas[0],
+      shiftStart: toDateTimeLocalValue(firstAssignment.shiftStart),
+      notes: firstAssignment.notes || '',
+    })
+    setPersonnelSearch('')
+    setOpenGroupMenuId(null)
+    setAssignMessage(
+      `Re-assigning group ${firstAssignment.patrolArea}. Update details then click "Save Group Re-assignment".`
+    )
+  }
+
+  const handleDeleteAssignment = (assignmentId) => {
+    const assignmentToDelete = assignments.find((item) => item.id === assignmentId)
+
     setAssignments((prev) => prev.filter((item) => item.id !== assignmentId))
+
+    if (editingAssignmentId === assignmentId) {
+      setEditingAssignmentId(null)
+      resetAssignmentForm()
+    }
+
+    if (assignmentToDelete && editingGroupId && resolveGroupId(assignmentToDelete) === editingGroupId) {
+      setEditingGroupId(null)
+      resetAssignmentForm()
+    }
+
+    setAssignMessage(`${assignmentId} deleted from deployment assignments.`)
+  }
+
+  const handleRequestDeleteGroup = (group) => {
+    setOpenGroupMenuId(null)
+    setPendingDeleteGroup(group)
+  }
+
+  const handleToggleGroupMenu = (groupId) => {
+    setOpenGroupMenuId((prev) => (prev === groupId ? null : groupId))
+  }
+
+  const handleDeleteGroup = (groupId) => {
+    const groupAssignments = assignments.filter((assignment) => resolveGroupId(assignment) === groupId)
+
+    if (groupAssignments.length === 0) {
+      return
+    }
+
+    setAssignments((prev) => prev.filter((assignment) => resolveGroupId(assignment) !== groupId))
+
+    if (editingGroupId === groupId) {
+      setEditingGroupId(null)
+      resetAssignmentForm()
+    }
+
+    if (editingAssignmentId && groupAssignments.some((assignment) => assignment.id === editingAssignmentId)) {
+      setEditingAssignmentId(null)
+      resetAssignmentForm()
+    }
+
+    setAssignMessage(`${groupAssignments.length} assignment(s) removed from ${groupAssignments[0].patrolArea}.`)
+  }
+
+  const handleRequestDeleteAssignment = (assignment) => {
+    setPendingDeleteAssignment(assignment)
+  }
+
+  const handleConfirmDeleteAssignment = () => {
+    if (!pendingDeleteAssignment) {
+      return
+    }
+
+    handleDeleteAssignment(pendingDeleteAssignment.id)
+    setPendingDeleteAssignment(null)
+  }
+
+  const handleCancelDeleteAssignment = () => {
+    setPendingDeleteAssignment(null)
+  }
+
+  const handleConfirmDeleteGroup = () => {
+    if (!pendingDeleteGroup) {
+      return
+    }
+
+    handleDeleteGroup(pendingDeleteGroup.groupId)
+    setPendingDeleteGroup(null)
+  }
+
+  const handleCancelDeleteGroup = () => {
+    setPendingDeleteGroup(null)
+  }
+
+  const handleCancelEdit = () => {
+    setEditingAssignmentId(null)
+    setEditingGroupId(null)
+    resetAssignmentForm()
+    setAssignMessage('Edit cancelled.')
   }
 
   return (
@@ -360,18 +655,40 @@ function AssignAreaPage() {
 
           <div className="d-flex align-items-center justify-content-between gap-2 flex-wrap">
             <button type="submit" className="report-generate-btn report-generate-btn--assign">
-              Assign Personnel
+              {editingAssignmentId
+                ? 'Save Re-assignment'
+                : editingGroupId
+                  ? 'Save Group Re-assignment'
+                  : 'Assign Personnel'}
             </button>
+            {(editingAssignmentId || editingGroupId) && (
+              <button type="button" className="assignment-inline-btn" onClick={handleCancelEdit}>
+                Cancel Re-assign
+              </button>
+            )}
             {assignMessage && <small className="report-feedback">{assignMessage}</small>}
           </div>
         </form>
       </div>
 
       <div className="widget-card slide-up p-3 overflow-auto no-scrollbar">
-        <h3 className="widget-title mb-3">Assigned Deployment List</h3>
+        <div className="assignment-list-header mb-3">
+          <h3 className="widget-title mb-0">Assigned Deployment List</h3>
+          <input
+            type="search"
+            className="settings-input assignment-list-search"
+            value={deploymentSearch}
+            onChange={(event) => setDeploymentSearch(event.target.value)}
+            placeholder="Search barangay, street, or highway"
+          />
+        </div>
 
         {assignments.length === 0 ? (
           <p className="text-body-secondary mb-0 small">No deployment assignments yet.</p>
+        ) : filteredGroupedAssignments.length === 0 ? (
+          <p className="text-body-secondary mb-0 small">
+            No deployment group matched "{deploymentSearch}".
+          </p>
         ) : (
           <table className="personnel-table table align-middle mb-0">
             <thead>
@@ -385,31 +702,109 @@ function AssignAreaPage() {
               </tr>
             </thead>
             <tbody>
-              {assignments.map((assignment) => (
-                <tr key={assignment.id} className="personnel-row">
-                  <td className="personnel-badge">{assignment.id}</td>
-                  <td>
-                    <strong className="d-block assignment-personnel-name">{assignment.personnelName}</strong>
-                    <small className="assignment-personnel-rank">{assignment.rank}</small>
-                  </td>
-                  <td>{assignment.patrolArea}</td>
-                  <td>{assignment.shiftStart ? formatDateTime(assignment.shiftStart) : '-'}</td>
-                  <td>{formatDateTime(assignment.assignedAt)}</td>
-                  <td className="assignment-table-actions">
-                    <button
-                      type="button"
-                      className="assignment-remove-btn"
-                      onClick={() => handleRemoveAssignment(assignment.id)}
-                    >
-                      Remove
-                    </button>
-                  </td>
-                </tr>
+              {filteredGroupedAssignments.map((group) => (
+                <Fragment key={group.groupId}>
+                  <tr className="assignment-group-row">
+                    <td colSpan={5} className="assignment-group-cell">
+                      <div className="assignment-group-content">
+                        <strong className="assignment-group-label">{group.patrolArea}</strong>
+                        <small className="assignment-group-meta">
+                          {group.assignments.length} personnel assigned in this deployment group
+                        </small>
+                      </div>
+                    </td>
+                    <td className="assignment-group-actions-cell">
+                      <div className="assignment-group-actions assignment-group-menu">
+                        <button
+                          type="button"
+                          className="assignment-group-menu-trigger"
+                          onClick={() => handleToggleGroupMenu(group.groupId)}
+                          aria-expanded={openGroupMenuId === group.groupId}
+                          aria-haspopup="menu"
+                        >
+                          Group Actions
+                        </button>
+
+                        {openGroupMenuId === group.groupId && (
+                          <div className="assignment-group-menu-dropdown" role="menu">
+                            <button
+                              type="button"
+                              className="assignment-group-edit-btn"
+                              onClick={() => handleEditGroup(group.groupId)}
+                            >
+                              Re-assign Group
+                            </button>
+                            <button
+                              type="button"
+                              className="assignment-group-delete-btn"
+                              onClick={() => handleRequestDeleteGroup(group)}
+                            >
+                              Delete Group
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    </td>
+                  </tr>
+
+                  {group.assignments.map((assignment) => (
+                    <tr key={assignment.id} className="personnel-row">
+                      <td className="personnel-badge">{assignment.id}</td>
+                      <td>
+                        <strong className="d-block assignment-personnel-name">{assignment.personnelName}</strong>
+                        <small className="assignment-personnel-rank">{assignment.rank}</small>
+                      </td>
+                      <td>{assignment.patrolArea}</td>
+                      <td>{assignment.shiftStart ? formatDateTime(assignment.shiftStart) : '-'}</td>
+                      <td>{formatDateTime(assignment.assignedAt)}</td>
+                      <td className="assignment-table-actions">
+                        <button
+                          type="button"
+                          className="assignment-edit-btn"
+                          onClick={() => handleEditAssignment(assignment)}
+                        >
+                          Re-assign
+                        </button>
+                        <button
+                          type="button"
+                          className="assignment-delete-btn"
+                          onClick={() => handleRequestDeleteAssignment(assignment)}
+                        >
+                          Delete
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </Fragment>
               ))}
             </tbody>
           </table>
         )}
       </div>
+
+      <ConfirmModal
+        open={Boolean(pendingDeleteGroup)}
+        title="Delete Deployment Group?"
+        message={pendingDeleteGroup
+          ? `Delete all ${pendingDeleteGroup.assignments.length} assignment(s) under ${pendingDeleteGroup.patrolArea}? This cannot be undone.`
+          : ''}
+        confirmLabel="Delete Group"
+        cancelLabel="Cancel"
+        onConfirm={handleConfirmDeleteGroup}
+        onCancel={handleCancelDeleteGroup}
+      />
+
+      <ConfirmModal
+        open={Boolean(pendingDeleteAssignment)}
+        title="Delete Deployment Assignment?"
+        message={pendingDeleteAssignment
+          ? `Delete ${pendingDeleteAssignment.id} for ${pendingDeleteAssignment.personnelName}? This cannot be undone.`
+          : ''}
+        confirmLabel="Delete"
+        cancelLabel="Cancel"
+        onConfirm={handleConfirmDeleteAssignment}
+        onCancel={handleCancelDeleteAssignment}
+      />
     </div>
   )
 }

@@ -12,6 +12,7 @@
  *   onToggleDark {Function} — called to flip the dark mode flag
  */
 import { useEffect, useMemo, useRef, useState } from 'react'
+import ConfirmModal from './ConfirmModal'
 
 /** Hardcoded supervisor — replace with an auth context in production */
 const SUPERVISOR = {
@@ -75,6 +76,7 @@ function TopBar({
 }) {
   const [dropdownOpen, setDropdownOpen] = useState(false)
   const [notificationOpen, setNotificationOpen] = useState(false)
+  const [clearConfirmOpen, setClearConfirmOpen] = useState(false)
   const [notificationSearch, setNotificationSearch] = useState('')
   const dropdownRef = useRef(null)
   const notificationRef = useRef(null)
@@ -133,6 +135,24 @@ function TopBar({
       }
       return nextOpen
     })
+  }
+
+  const handleRequestClearNotifications = () => {
+    if (notifications.length === 0) {
+      return
+    }
+
+    setClearConfirmOpen(true)
+  }
+
+  const handleConfirmClearNotifications = () => {
+    onClearNotifications?.()
+    setClearConfirmOpen(false)
+    setNotificationOpen(false)
+  }
+
+  const handleCancelClearNotifications = () => {
+    setClearConfirmOpen(false)
   }
 
   return (
@@ -204,7 +224,7 @@ function TopBar({
                   <button type="button" onClick={onReadAllNotifications} disabled={notifications.length === 0}>
                     Mark all read
                   </button>
-                  <button type="button" onClick={onClearNotifications} disabled={notifications.length === 0}>
+                  <button type="button" onClick={handleRequestClearNotifications} disabled={notifications.length === 0}>
                     Clear
                   </button>
                 </div>
@@ -331,6 +351,17 @@ function TopBar({
           )}
         </div>
       </div>
+
+      <ConfirmModal
+        open={clearConfirmOpen}
+        title="Clear Notifications?"
+        message="This will remove all notifications from the list."
+        confirmLabel="Clear"
+        cancelLabel="Cancel"
+        onConfirm={handleConfirmClearNotifications}
+        onCancel={handleCancelClearNotifications}
+        variant="primary"
+      />
     </header>
   )
 }
