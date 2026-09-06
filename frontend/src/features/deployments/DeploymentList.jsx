@@ -159,21 +159,21 @@ function DeploymentList({
 
                   {group.assignments.map((assignment) => (
                     <tr key={assignment.id} className="personnel-row">
-                      <td className="personnel-badge">{assignment.id}</td>
-                      <td>
+                      <td data-label="Assignment ID" className="personnel-badge">{assignment.id}</td>
+                      <td data-label="Personnel">
                         <strong className="d-block assignment-personnel-name">{assignment.personnelName}</strong>
                         <small className="assignment-personnel-rank">{assignment.rank}</small>
                       </td>
-                      <td>{assignment.patrolArea}</td>
-                      <td>{assignment.shiftStart ? formatDateTime(assignment.shiftStart) : '-'}</td>
-                      <td>{assignment.shiftEnd ? formatDateTime(assignment.shiftEnd) : '-'}</td>
-                      <td>
+                      <td data-label="Patrol Area">{assignment.patrolArea}</td>
+                      <td data-label="Shift Start">{assignment.shiftStart ? formatDateTime(assignment.shiftStart) : '-'}</td>
+                      <td data-label="Shift End">{assignment.shiftEnd ? formatDateTime(assignment.shiftEnd) : '-'}</td>
+                      <td data-label="Status">
                         <span className={`deployment-status deployment-status--${assignment.status || 'active'}`}>
                           {formatDeploymentStatus(assignment.status)}
                         </span>
                       </td>
-                      <td>{formatDateTime(assignment.assignedAt)}</td>
-                      <td className="assignment-actions-cell">
+                      <td data-label="Assigned At">{formatDateTime(assignment.assignedAt)}</td>
+                      <td data-label="Actions" className="assignment-actions-cell">
                         <div className="assignment-table-actions">
                           <button
                             type="button"

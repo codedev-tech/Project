@@ -23,11 +23,13 @@ import { useEffect, useState } from 'react'
 import { Outlet } from 'react-router-dom'
 import { usePersonnelContext } from '../context/usePersonnelContext'
 import NavSidebar from './NavSidebar'
+import MobileNavigation from './MobileNavigation'
 import TopBar from './TopBar'
 
 function AppLayout() {
   // Controls whether sidebar is expanded (220 px) or icon-only (64 px)
   const [collapsed, setCollapsed] = useState(false)
+  const [mobileNavigationOpen, setMobileNavigationOpen] = useState(false)
 
   // Dark mode — initialised from localStorage so the preference persists
   const [isDark, setIsDark] = useState(() => localStorage.getItem('theme') === 'dark')
@@ -53,11 +55,14 @@ function AppLayout() {
     <div className={`layout-root ${collapsed ? 'layout-root--collapsed' : ''}`}>
       {/* Fixed-position sidebar — toggle button inside flips the collapsed state */}
       <NavSidebar collapsed={collapsed} onToggle={() => setCollapsed((v) => !v)} />
+      <MobileNavigation open={mobileNavigationOpen} onClose={() => setMobileNavigationOpen(false)} />
 
       {/* Scrollable body area — left margin adjusts automatically via CSS transition */}
       <div className="layout-body">
         {/* Sticky top bar — shows system title and live/offline connection pill */}
         <TopBar
+          navigationOpen={mobileNavigationOpen}
+          onOpenNavigation={() => setMobileNavigationOpen(true)}
           isConnected={isConnected}
           isDark={isDark}
           onToggleDark={() => setIsDark((v) => !v)}

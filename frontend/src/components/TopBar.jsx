@@ -15,6 +15,7 @@ import { useDeferredValue, useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
   Bell,
+  Menu,
   LogOut,
   Moon,
   Sun,
@@ -123,6 +124,8 @@ function ProfileAvatar({ className, name, src }) {
 }
 
 function TopBar({
+  navigationOpen = false,
+  onOpenNavigation,
   isConnected,
   isDark,
   onToggleDark,
@@ -236,6 +239,11 @@ function TopBar({
     <header className="top-bar">
       {/* ── Left: system branding ── */}
       <div className="topbar-left">
+        <button type="button" className="icon-btn mobile-menu-button"
+          aria-label="Open navigation" aria-expanded={navigationOpen}
+          aria-controls="mobile-navigation" onClick={onOpenNavigation}>
+          <Menu aria-hidden="true" />
+        </button>
         <img className="topbar-left__pnp-logo" src={pnpLogo} alt="" aria-hidden="true" />
         <div className="topbar-left__copy">
           <h1>Philippine National Police</h1>

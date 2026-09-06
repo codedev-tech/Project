@@ -82,8 +82,9 @@ const navSections = [
   },
 ]
 
-function NavSidebar({ collapsed, onToggle }) {
+function NavSidebar({ collapsed, onToggle, onNavigate, mobile = false }) {
   const handleNavItemClick = (item) => {
+    onNavigate?.()
     if (item.to === '/' && typeof window !== 'undefined') {
       window.dispatchEvent(new CustomEvent('focus-live-map'))
     }
@@ -104,7 +105,7 @@ function NavSidebar({ collapsed, onToggle }) {
         )}
       </div>
 
-      <nav className="nav-sidebar__nav mt-4">
+      <nav className="nav-sidebar__nav mt-4" aria-label="Main navigation">
         {navSections.map((section) => (
           <div className="nav-sidebar__section" key={section.title}>
             {!collapsed && <span className="nav-sidebar__section-title">{section.title}</span>}
@@ -118,13 +119,17 @@ function NavSidebar({ collapsed, onToggle }) {
                     end={item.to === '/'}
                     onClick={() => handleNavItemClick(item)}
                     aria-label={item.label}
-                    title={collapsed ? item.label : undefined}
                     className={({ isActive }) =>
                       `nav-sidebar__link ${isActive ? 'nav-sidebar__link--active' : ''}`
                     }
                   >
                     <span className="nav-sidebar__icon"><Icon aria-hidden="true" /></span>
                     {!collapsed && <span className="nav-sidebar__label">{item.label}</span>}
+                    {collapsed && (
+                      <span className="nav-sidebar__tooltip" role="tooltip" aria-hidden="true">
+                        {item.label}
+                      </span>
+                    )}
                   </NavLink>
                 )
               })}
@@ -133,7 +138,7 @@ function NavSidebar({ collapsed, onToggle }) {
         ))}
       </nav>
 
-      <button
+      {!mobile && <button
         type="button"
         className="nav-sidebar__toggle"
         onClick={onToggle}
@@ -141,7 +146,7 @@ function NavSidebar({ collapsed, onToggle }) {
         title={collapsed ? 'Expand navigation sidebar' : 'Collapse navigation sidebar'}
       >
         {collapsed ? <PanelLeftOpen aria-hidden="true" /> : <PanelLeftClose aria-hidden="true" />}
-      </button>
+      </button>}
     </aside>
   )
 }

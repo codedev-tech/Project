@@ -13,3 +13,5 @@ tmp/
 # Local tooling
 .DS_Store
 *.log
+.tmp-chrome-*/
+login-mobile-check*.png
