@@ -9,6 +9,7 @@ import 'maplibre-gl/dist/maplibre-gl.css'
 import Supercluster from 'supercluster'
 import '../services/configureMapLibre'
 import MapAttribution from './MapAttribution'
+import GpsReadingAge from './GpsReadingAge'
 import MapLegend from './MapLegend'
 import { SkeletonBlock } from './LoadingSkeleton'
 import MapStyleControls from './MapStyleControls'
@@ -27,6 +28,7 @@ import {
   setGeoJsonSourceData,
 } from '../utils/mapLibreLayers'
 import { addMobileLikeNavigationControls } from '../utils/mapNavigation'
+import { createPersonnelClusterCache, isValidMapPosition } from '../utils/personnelClusters'
 import {
   MARKER_ANIMATION_DURATION_MS,
   confirmedFixFromMember,
@@ -58,10 +60,7 @@ const OUTSIDE_MASK_FEATURE = {
   },
 }
 
-const isValidPosition = (member) => (
-  Number.isFinite(Number(member?.latitude))
-  && Number.isFinite(Number(member?.longitude))
-)
+const isValidPosition = isValidMapPosition
 
 const getMarkerStatusClass = (status = '') => {
   const normalized = status.toLowerCase()
@@ -150,7 +149,7 @@ const addOperationalLayers = (map, deploymentData) => {
       id: 'geosentri-outside-mask-fill',
       type: 'fill',
       source: 'geosentri-outside-mask',
-      paint: { 'fill-color': '#f51212', 'fill-opacity': 0.12 },
+      paint: { 'fill-color': '#f52c2c', 'fill-opacity': 0.10 },
     }, firstSymbolLayerId)
   }
 
@@ -216,6 +215,7 @@ function PersonnelMap({
   const markerStatesRef = useRef(new Map())
   const clusterMarkerStatesRef = useRef(new Map())
   const clusterIndexRef = useRef(null)
+  const clusterCacheRef = useRef(null)
   const personnelRef = useRef(personnel)
   const followedPersonnelIdRef = useRef(followedPersonnelId)
   const deploymentDataRef = useRef(featureCollection())
@@ -277,11 +277,8 @@ function PersonnelMap({
         return
       }
 
-      const memberIds = index
-        .getLeaves(feature.properties.cluster_id, Infinity)
-        .map((leaf) => String(leaf.properties.memberId))
-        .sort()
-      const clusterKey = memberIds.join('|')
+      const details = index.getClusterDetails(feature.properties.cluster_id)
+      const clusterKey = details.key
       activeClusterKeys.add(clusterKey)
       const tone = feature.properties.backup > 0
         ? 'personnel-cluster--backup'
@@ -328,7 +325,7 @@ function PersonnelMap({
       state.badge.textContent = String(feature.properties.point_count)
       state.element.setAttribute('aria-label', `Zoom to ${feature.properties.point_count} grouped officers`)
       state.expansionZoom = Math.min(
-        index.getClusterExpansionZoom(feature.properties.cluster_id),
+        details.expansionZoom,
         18,
       )
       const from = [...state.currentPosition]
@@ -336,8 +333,9 @@ function PersonnelMap({
         && state.targetPosition[1] === target[1]
       state.targetPosition = target
       if (targetUnchanged && state.animationFrame) return
-      if (from[0] === target[0] && from[1] === target[1]) return
       if (state.animationFrame) cancelAnimationFrame(state.animationFrame)
+      state.animationFrame = null
+      if (from[0] === target[0] && from[1] === target[1]) return
       const startTime = performance.now()
       let lastRenderedAt = 0
       const tick = (now) => {
@@ -405,7 +403,7 @@ function PersonnelMap({
         })
       })
 
-    clusterIndexRef.current = new Supercluster({
+    if (!clusterCacheRef.current) clusterCacheRef.current = createPersonnelClusterCache(() => new Supercluster({
       radius: PERSONNEL_CLUSTER_RADIUS,
       maxZoom: PERSONNEL_CLUSTER_MAX_ZOOM,
       map: (properties) => ({
@@ -423,7 +421,8 @@ function PersonnelMap({
           properties.motionDuration,
         )
       },
-    }).load(points)
+    }))
+    clusterIndexRef.current = clusterCacheRef.current.load(points)
     renderClusters()
   }, [renderClusters])
 
@@ -489,6 +488,8 @@ function PersonnelMap({
         state.marker.remove()
       })
       markerStates.clear()
+      clusterIndexRef.current = null
+      clusterCacheRef.current = null
       clearClusterMarkers()
       map.remove()
       mapRef.current = null
@@ -565,8 +566,9 @@ function PersonnelMap({
       state.confirmedFix = confirmedFix
       state.targetPosition = target
       state.motionDuration = motion.durationMs
-      if (from[0] === target[0] && from[1] === target[1]) return
       if (state.animationFrame) cancelAnimationFrame(state.animationFrame)
+      state.animationFrame = null
+      if (from[0] === target[0] && from[1] === target[1]) return
       if (!state.isOnMap && member.id !== followedPersonnelId) {
         state.currentPosition = target
         state.marker.setLngLat([target[1], target[0]])
@@ -593,7 +595,7 @@ function PersonnelMap({
         state.currentPosition = nextPosition
         state.marker.setLngLat([nextPosition[1], nextPosition[0]])
         if (progress < 1) state.animationFrame = requestAnimationFrame(tick)
-        else rebuildClusterIndex()
+        else state.animationFrame = null
       }
       state.animationFrame = requestAnimationFrame(tick)
     })
@@ -700,7 +702,7 @@ function PersonnelMap({
       )}
       {followedPersonnel && (
         <div className="map-follow-status" role="status">
-          <span>Following <strong>{followedPersonnel.name}</strong></span>
+          <span>Following <strong>{followedPersonnel.name}</strong><GpsReadingAge recordedAt={followedPersonnel.locationRecordedAt} /></span>
           <button type="button" onClick={onStopFollowing}>Stop</button>
         </div>
       )}

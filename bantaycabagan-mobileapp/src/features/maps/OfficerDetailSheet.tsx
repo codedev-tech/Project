@@ -4,6 +4,7 @@ import { MaterialIcons as Icon } from '@expo/vector-icons';
 import { SwipeDismissCard } from '../../components/SwipeDismissSheet';
 import { mobileTheme } from '../../constants/mobileTheme';
 import type { LivePersonnel } from '../../types/operations';
+import { GpsReadingAge } from './GpsReadingAge';
 
 type Props = {
   currentPersonnelId: string;
@@ -37,11 +38,15 @@ export function OfficerDetailSheet({
                 { opacity: pulseOpacity, transform: [{ scale: pulseScale }] },
               ]} />
             )}
-            <Image
+            {officer.photoUrl ? <Image
               source={{ uri: officer.photoUrl }}
               cachePolicy="memory"
               style={[styles.profilePhoto, emergencyActive && styles.profilePhotoEmergency]}
-            />
+            /> : (
+              <View style={[styles.profilePhoto, styles.profilePlaceholder]}>
+                <Text style={styles.profileInitials}>{officer.badge?.slice(-3) || officer.name.slice(0, 2)}</Text>
+              </View>
+            )}
           </View>
           <View style={styles.identity}>
             <Text style={styles.name} numberOfLines={1}>{officer.name}</Text>
@@ -72,6 +77,7 @@ export function OfficerDetailSheet({
         </View>
 
         <View style={styles.telemetryGrid}>
+          <GpsReadingAge recordedAt={officer.locationRecordedAt} />
           <Telemetry icon="speed" label="Speed" value={
             Number.isFinite(officer.speed) ? `${Number(officer.speed).toFixed(1)} km/h` : 'Unavailable'
           } />
@@ -129,6 +135,8 @@ const styles = StyleSheet.create({
     borderRadius: 31, backgroundColor: '#ffffff',
   },
   profilePhotoEmergency: { borderColor: mobileTheme.danger },
+  profilePlaceholder: { alignItems: 'center', justifyContent: 'center' },
+  profileInitials: { color: '#17213a', fontSize: 17, fontWeight: '800' },
   identity: { flex: 1 },
   name: { color: '#ffffff', fontSize: 17, fontWeight: '800' },
   rank: { marginTop: 3, color: '#93c5fd', fontSize: 12, fontWeight: '700' },

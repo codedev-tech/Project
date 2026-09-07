@@ -12,6 +12,7 @@ export type OfficerMapPerson = LivePersonnel & {
 
 export type OfficerMapCanvasHandle = {
   focusOfficer: (officerId: string) => void;
+  fitPersonnel: () => void;
 };
 
 export type OfficerMapCanvasProps = {
@@ -30,7 +31,7 @@ export type OfficerMapCanvasProps = {
 };
 
 const OfficerMapCanvas = forwardRef<OfficerMapCanvasHandle, OfficerMapCanvasProps>((_props, ref) => {
-  useImperativeHandle(ref, () => ({ focusOfficer: () => undefined }), []);
+  useImperativeHandle(ref, () => ({ focusOfficer: () => undefined, fitPersonnel: () => undefined }), []);
   return (
     <View style={styles.fallback}>
       <Text style={styles.fallbackText}>The native map is available on Android and iOS builds.</Text>

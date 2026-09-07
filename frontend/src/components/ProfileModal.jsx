@@ -9,7 +9,7 @@ import {
 import { createPortal } from 'react-dom'
 import { useRef } from 'react'
 
-import { formatTime } from '../utils/dateTime'
+import GpsReadingAge from './GpsReadingAge'
 import { useAccessibleDialog } from '../hooks/useAccessibleDialog'
 import InitialsAvatar from './InitialsAvatar'
 
@@ -85,7 +85,7 @@ function ProfileModal({ selectedPersonnel, onClose, onLocate }) {
         <div className="profile-map-card__location">
           <MapPin size={17} aria-hidden="true" />
           <div>
-            <span>Current location</span>
+            <span>Last confirmed location</span>
             <strong>{selectedPersonnel.locationName || 'Location unavailable'}</strong>
             {selectedPersonnel.isLocationStale && selectedPersonnel.lastKnownLocationName && (
               <small>Last known: {selectedPersonnel.lastKnownLocationName}</small>
@@ -118,12 +118,12 @@ function ProfileModal({ selectedPersonnel, onClose, onLocate }) {
           <div className="profile-map-card__metric">
             <Clock3 size={16} aria-hidden="true" />
             <span>GPS time</span>
-            <strong>{formatGpsDateTime(selectedPersonnel.locationRecordedAt || selectedPersonnel.lastUpdated)}</strong>
+            <strong>{formatGpsDateTime(selectedPersonnel.locationRecordedAt)}</strong>
           </div>
           <div className="profile-map-card__metric">
             <Clock3 size={16} aria-hidden="true" />
-            <span>Updated</span>
-            <strong>{formatTime(selectedPersonnel.lastUpdated)}</strong>
+            <span>Reading age</span>
+            <GpsReadingAge recordedAt={selectedPersonnel.locationRecordedAt} />
           </div>
         </div>
       </section>

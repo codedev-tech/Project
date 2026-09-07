@@ -1,0 +1,21 @@
+.gps-reading-age {
+  display: block;
+  font-size: var(--font-size-xs, 0.75rem);
+  line-height: 1.5;
+  font-weight: 600;
+}
+
+.profile-map-card__metric .gps-reading-age {
+  grid-column: 1 / -1;
+}
+
+.profile-map-card__metric .gps-reading-age:not(.gps-reading-age--delayed) {
+  color: #dce6f3;
+}
+
+.gps-reading-age--delayed {
+  color: #92400e;
+  background: #fef3c7;
+  border-radius: 4px;
+  padding: 2px 5px;
+}

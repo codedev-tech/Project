@@ -35,7 +35,6 @@ import {
 } from '../services/mapTilerConfig';
 import {
   CLUSTER_MAX_ZOOM,
-  clusterPersonnel,
   confirmedFixFromMember,
   interpolatePosition,
   markerMotionForFixes,
@@ -43,6 +42,7 @@ import {
   markerToneColor,
   type ConfirmedGpsFix,
 } from '../utils/officerMapMath';
+import { usePersonnelClusters } from '../features/maps/usePersonnelClusters';
 import type {
   OfficerMapCanvasHandle,
   OfficerMapCanvasProps,
@@ -184,11 +184,15 @@ function PersonnelMarker({
             isCurrent && styles.markerCurrentRingVisible,
             isFollowed && styles.markerFollowedRing,
           ]}>
-            <Image
+            {member.photoUrl ? <Image
               source={{ uri: member.photoUrl }}
               cachePolicy="memory"
               style={[styles.markerPhoto, { borderColor }]}
-            />
+            /> : (
+              <View style={[styles.markerPhoto, styles.markerPlaceholder, { borderColor }]}>
+                <Text style={styles.markerInitials}>{member.badge?.slice(-3) || member.name.slice(0, 2)}</Text>
+              </View>
+            )}
           </View>
           {statusCue ? (
             <View style={[styles.markerStatusCue, { backgroundColor: borderColor }]}>
@@ -230,13 +234,7 @@ const OfficerMapCanvas = forwardRef<OfficerMapCanvasHandle, OfficerMapCanvasProp
     () => interpolatedPersonnel.find((member) => member.id === followedOfficerId) || null,
     [followedOfficerId, interpolatedPersonnel],
   );
-  const clusteredPersonnel = useMemo(
-    () => clusterPersonnel(
-      interpolatedPersonnel.filter((member) => member.id !== followedOfficerId),
-      mapZoom,
-    ),
-    [followedOfficerId, interpolatedPersonnel, mapZoom],
-  );
+  const clusteredPersonnel = usePersonnelClusters(personnel, interpolatedPersonnel, followedOfficerId, mapZoom);
   const clusterPulseOpacity = emergencyPulse.interpolate({ inputRange: [0, 1], outputRange: [0.7, 0] });
   const clusterPulseScale = emergencyPulse.interpolate({ inputRange: [0, 1], outputRange: [1, 1.42] });
 
@@ -284,6 +282,10 @@ const OfficerMapCanvas = forwardRef<OfficerMapCanvasHandle, OfficerMapCanvasProp
   }, [enable3D, fitInitialPersonnel, followedOfficerId, mapMode, personnel]);
 
   useImperativeHandle(ref, () => ({
+    fitPersonnel: () => {
+      initialFitDone.current = false;
+      fitInitialPersonnel();
+    },
     focusOfficer: (officerId: string) => {
       const member = personnel.find((item) => item.id === officerId);
       if (!member) return;
@@ -296,7 +298,7 @@ const OfficerMapCanvas = forwardRef<OfficerMapCanvasHandle, OfficerMapCanvasProp
         duration: 720,
       });
     },
-  }), [enable3D, mapMode, personnel]);
+  }), [enable3D, fitInitialPersonnel, mapMode, personnel]);
 
   useEffect(() => {
     if (!followedOfficerId) return;
@@ -525,6 +527,8 @@ const styles = StyleSheet.create({
   markerCurrentRingVisible: { borderColor: '#FFFFFF' },
   markerFollowedRing: { borderColor: '#2563EB', backgroundColor: 'rgba(37,99,235,0.2)' },
   markerPhoto: { width: 42, height: 42, borderWidth: 3, borderRadius: 21, backgroundColor: '#ffffff' },
+  markerPlaceholder: { alignItems: 'center', justifyContent: 'center' },
+  markerInitials: { color: '#17213a', fontSize: 11, fontWeight: '800' },
   markerStatusCue: {
     position: 'absolute',
     top: -2,

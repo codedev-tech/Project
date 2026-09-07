@@ -16,7 +16,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import { useFocusEffect } from '@react-navigation/native';
+import { useFocusEffect, useIsFocused } from '@react-navigation/native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialIcons as Icon } from '@expo/vector-icons';
 import OfficerMapCanvas, {
@@ -43,7 +43,10 @@ import {
   type MapMode,
 } from '../features/maps/MapControls';
 import { OfficerDetailSheet } from '../features/maps/OfficerDetailSheet';
+import { GpsReadingAge } from '../features/maps/GpsReadingAge';
 import { useMapSelectionController } from '../features/maps/useMapSelectionController';
+import { useDevelopmentMapPersonnel } from '../features/maps/useDevelopmentMapPersonnel';
+import { MapPreviewToggle } from '../features/maps/MapPreviewToggle';
 
 const webSearchInputReset = Platform.OS === 'web'
   ? ({
@@ -72,6 +75,8 @@ export default function OfficerMapScreen({
   onMapInteractionChange,
 }: OfficerMapScreenProps) {
   const { colors, isDark } = useMobileTheme();
+  const isFocused = useIsFocused();
+  const preview = useDevelopmentMapPersonnel(isFocused);
   const {
     deployments,
     personnel,
@@ -169,8 +174,9 @@ export default function OfficerMapScreen({
   );
 
   const mapPersonnel = useMemo<OfficerMapPerson[]>(() => (
-    createMapPersonnel(visiblePersonnel, emergencyPersonnelIds, operationPersonnelIds)
-  ), [emergencyPersonnelIds, operationPersonnelIds, visiblePersonnel]);
+    [...createMapPersonnel(visiblePersonnel, emergencyPersonnelIds, operationPersonnelIds), ...preview.personnel]
+  ), [emergencyPersonnelIds, operationPersonnelIds, visiblePersonnel, preview.personnel]);
+  const selectablePersonnel = useMemo(() => [...visiblePersonnel, ...preview.personnel], [visiblePersonnel, preview.personnel]);
 
   const currentOfficerHasActiveBackup = emergencyPersonnelIds.has(currentPersonnelId);
   const hasCriticalPersonnel = mapPersonnel.some((member) => member.emergencyActive);
@@ -197,10 +203,13 @@ export default function OfficerMapScreen({
     mapPersonnel,
     onMapInteractionEnd: handleMapInteractionEnd,
     onMapInteractionStart: handleMapInteractionStart,
-    visiblePersonnel,
+    visiblePersonnel: selectablePersonnel,
   });
+  useEffect(() => {
+    if (preview.enabled) nativeMapRef.current?.fitPersonnel();
+  }, [preview.enabled, nativeMapRef]);
   const selectedOfficerHasActiveBackup = selectedOfficer
-    ? emergencyPersonnelIds.has(selectedOfficer.id)
+    ? mapPersonnel.some((member) => member.id === selectedOfficer.id && member.emergencyActive)
     : false;
   const personnelRosterKey = mapPersonnel.map((member) => member.id).join('|');
 
@@ -412,6 +421,12 @@ export default function OfficerMapScreen({
           <View style={[styles.connectionDot, !isConnected && styles.connectionDotOffline]} />
         </View>
 
+        {preview.enabled && (
+          <View style={styles.previewNotice}>
+            <Text style={styles.previewNoticeText}>TEST MODE · {preview.personnel.length} simulated markers</Text>
+          </View>
+        )}
+
         <View style={styles.topUtilityRow}>
           {deploymentPromptVisible && (
             <View style={[
@@ -424,6 +439,7 @@ export default function OfficerMapScreen({
                 <Text style={[styles.deploymentArea, { color: colors.text }]} numberOfLines={1}>
                   {assignment?.patrolArea || 'No active assignment'}
                 </Text>
+                <GpsReadingAge recordedAt={currentOfficer.locationRecordedAt} color={colors.textMuted} />
               </View>
               <Text style={[
                 styles.liveText,
@@ -452,6 +468,11 @@ export default function OfficerMapScreen({
                 setExpanded={setLegendExpanded}
               />
             )}
+            {preview.available && <MapPreviewToggle enabled={preview.enabled} onPress={() => {
+              handleCloseOfficer();
+              handleStopFollowing();
+              preview.toggle();
+            }} />}
           </View>
         </View>
 
@@ -460,9 +481,12 @@ export default function OfficerMapScreen({
       {followedOfficer && !selectedOfficer && (
         <View style={styles.followBanner}>
           <Icon name="near-me" size={17} color="#93c5fd" />
-          <Text style={styles.followBannerText} numberOfLines={1}>
-            Following <Text style={styles.followBannerName}>{followedOfficer.name}</Text>
-          </Text>
+          <View style={styles.followBannerContent}>
+            <Text style={styles.followBannerText} numberOfLines={1}>
+              Following <Text style={styles.followBannerName}>{followedOfficer.name}</Text>
+            </Text>
+            <GpsReadingAge recordedAt={followedOfficer.locationRecordedAt} />
+          </View>
           <TouchableOpacity
             accessibilityLabel={`Stop following ${followedOfficer.name}`}
             style={styles.followBannerStop}
@@ -551,6 +575,8 @@ export default function OfficerMapScreen({
 }
 
 const styles = StyleSheet.create({
+  previewNotice: { alignSelf: 'flex-start', marginTop: 6, paddingHorizontal: 10, paddingVertical: 5, borderRadius: 8, backgroundColor: '#fef3c7' },
+  previewNoticeText: { color: '#78350f', fontSize: 11, fontWeight: '800' },
   screen: { flex: 1, backgroundColor: '#ffffff' },
   container: { flex: 1, backgroundColor: '#e2e8f0' },
   mapWrap: { ...StyleSheet.absoluteFill },
@@ -646,7 +672,8 @@ const styles = StyleSheet.create({
     shadowRadius: 8,
     elevation: 10,
   },
-  followBannerText: { flex: 1, color: '#cbd5e1', fontSize: 12, fontWeight: '700' },
+  followBannerContent: { flex: 1, paddingVertical: 5 },
+  followBannerText: { color: '#cbd5e1', fontSize: 12, fontWeight: '700' },
   followBannerName: { color: '#ffffff', fontWeight: '900' },
   followBannerStop: {
     minHeight: 32,

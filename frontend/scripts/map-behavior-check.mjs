@@ -59,9 +59,9 @@ const monitoringStyles = fs.readFileSync(
 const packageJson = JSON.parse(fs.readFileSync(path.join(projectRoot, 'package.json'), 'utf8'))
 
 assert.equal(GPS_UPDATE_INTERVAL_MS, 10_000, 'Web GPS cadence must match the tracker upload interval')
-assert.equal(MARKER_ANIMATION_DURATION_MS, 2_000, 'Web default motion must remain a two-second slow catch-up')
-assert.equal(WALKING_MARKER_ANIMATION_DURATION_MS, 2_000, 'Walking fixes must retain smooth two-second motion')
-assert.equal(VEHICLE_MARKER_ANIMATION_DURATION_MS, 900, 'Vehicle fixes must catch up in under one second')
+assert.equal(MARKER_ANIMATION_DURATION_MS, 500, 'Web default motion must catch up in half a second')
+assert.equal(WALKING_MARKER_ANIMATION_DURATION_MS, 500, 'Walking fixes must retain smooth half-second motion')
+assert.equal(VEHICLE_MARKER_ANIMATION_DURATION_MS, 250, 'Vehicle fixes must catch up in a quarter second')
 assert.equal(easeOutCubic(0), 0, 'Interpolation must begin at the old GPS position')
 assert.equal(easeOutCubic(1), 1, 'Interpolation must finish at the new GPS position')
 assert.equal(easeOutCubic(-1), 0, 'Interpolation progress must be clamped below zero')
@@ -128,8 +128,8 @@ assert.match(reportMapSource, /new maplibregl\.Map\(/, 'Report route map must us
 assert.match(personnelMapSource, /new Supercluster\(/, 'Personnel map must create a Supercluster index')
 assert.match(
   personnelMapSource,
-  /getLeaves\(feature\.properties\.cluster_id, Infinity\)[\s\S]*memberIds\.join\('\|'\)/,
-  'Web cluster markers must use stable membership keys',
+  /getClusterDetails\(feature\.properties\.cluster_id\)[\s\S]*clusterKey = details\.key/,
+  'Web cluster markers must reuse cached stable membership keys',
 )
 assert.match(
   personnelMapSource,

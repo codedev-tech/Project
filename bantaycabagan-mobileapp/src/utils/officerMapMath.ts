@@ -3,8 +3,8 @@ import type { OfficerMapPerson } from '../components/OfficerMapCanvas';
 export const CLUSTER_MAX_ZOOM = 18;
 export const CLUSTER_RADIUS_PIXELS = 58;
 export const GPS_UPDATE_INTERVAL_MS = 10_000;
-export const WALKING_MARKER_ANIMATION_DURATION_MS = 2_000;
-export const VEHICLE_MARKER_ANIMATION_DURATION_MS = 900;
+export const WALKING_MARKER_ANIMATION_DURATION_MS = 500;
+export const VEHICLE_MARKER_ANIMATION_DURATION_MS = 250;
 export const STATIONARY_JITTER_DISTANCE_METERS = 5;
 export const STATIONARY_SPEED_MAX_KMH = 2;
 export const VEHICLE_SPEED_MIN_KMH = 10;
@@ -157,7 +157,8 @@ export const interpolatePosition = (
 };
 
 const worldPixel = (longitude: number, latitude: number, zoom: number) => {
-  const worldSize = 256 * 2 ** zoom;
+  // MapLibre uses a 512-pixel world at zoom zero.
+  const worldSize = 512 * 2 ** zoom;
   const constrainedLatitude = Math.max(-85.051129, Math.min(85.051129, latitude));
   const sine = Math.sin(constrainedLatitude * Math.PI / 180);
   return {
@@ -166,13 +167,20 @@ const worldPixel = (longitude: number, latitude: number, zoom: number) => {
   };
 };
 
+export const isValidMapPosition = (member: OfficerMapPerson): member is OfficerMapPerson & {
+  latitude: number;
+  longitude: number;
+} => (
+  typeof member.latitude === 'number' && Number.isFinite(member.latitude)
+  && typeof member.longitude === 'number' && Number.isFinite(member.longitude)
+  && Math.abs(member.latitude) <= 90 && Math.abs(member.longitude) <= 180
+);
+
 export const clusterPersonnel = (
   personnel: OfficerMapPerson[],
   zoom: number,
 ): PersonnelCluster[] => {
-  const validPersonnel = personnel.filter((member) => (
-    Number.isFinite(Number(member.latitude)) && Number.isFinite(Number(member.longitude))
-  ));
+  const validPersonnel = personnel.filter(isValidMapPosition);
 
   if (zoom >= CLUSTER_MAX_ZOOM) {
     return validPersonnel.map((member) => ({
@@ -220,10 +228,9 @@ export const clusterPersonnel = (
         candidates.forEach((candidateIndex) => {
           if (visited.has(candidateIndex)) return;
           const candidate = projected[candidateIndex];
-          if (Math.hypot(
-            candidate.pixel.x - seed.pixel.x,
-            candidate.pixel.y - seed.pixel.y,
-          ) <= CLUSTER_RADIUS_PIXELS) {
+          const deltaX = candidate.pixel.x - seed.pixel.x;
+          const deltaY = candidate.pixel.y - seed.pixel.y;
+          if (deltaX * deltaX + deltaY * deltaY <= CLUSTER_RADIUS_PIXELS ** 2) {
             visited.add(candidateIndex);
             memberIndexes.push(candidateIndex);
           }
@@ -236,7 +243,7 @@ export const clusterPersonnel = (
     const boundary = members.some((member) => markerTone(member) === 'boundary');
     const operation = members.some((member) => markerTone(member) === 'operation');
     clusters.push({
-      id: members.map((member) => member.id).sort().join('-'),
+      id: members.length === 1 ? members[0].id : JSON.stringify(members.map((member) => member.id).sort()),
       latitude: members.reduce((sum, member) => sum + Number(member.latitude), 0) / members.length,
       longitude: members.reduce((sum, member) => sum + Number(member.longitude), 0) / members.length,
       members,
@@ -245,4 +252,25 @@ export const clusterPersonnel = (
   });
 
   return clusters;
+};
+
+// Animate centroids within fixed memberships; do not run spatial searches or
+// remount clusters at every intermediate position in a GPS transition.
+export const positionPersonnelClusters = (
+  clusters: PersonnelCluster[],
+  positions: OfficerMapPerson[],
+): PersonnelCluster[] => {
+  const byId = new Map(positions.map((member) => [member.id, member]));
+  return clusters.map((cluster) => {
+    let latitude = 0;
+    let longitude = 0;
+    const members = cluster.members.map((member) => {
+      const candidate = byId.get(member.id);
+      const position = candidate && isValidMapPosition(candidate) ? candidate : member;
+      latitude += Number(position.latitude);
+      longitude += Number(position.longitude);
+      return { ...member, latitude: Number(position.latitude), longitude: Number(position.longitude) };
+    });
+    return { ...cluster, members, latitude: latitude / members.length, longitude: longitude / members.length };
+  });
 };

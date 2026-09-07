@@ -17,3 +17,5 @@ describe('cross-platform domain contracts', () => {
     });
   });
 });
+
+///?mockMap=clusters
