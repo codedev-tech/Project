@@ -32,8 +32,10 @@ export default function VerificationCodeInput({
   useEffect(() => {
     if (!disabled && focusRequest !== focusedRequest.current) {
       focusedRequest.current = focusRequest;
-      inputRef.current?.focus();
+      const frame = requestAnimationFrame(() => inputRef.current?.focus());
+      return () => cancelAnimationFrame(frame);
     }
+    return undefined;
   }, [disabled, focusRequest]);
   const [focused, setFocused] = useState(false);
   const [selection, setSelection] = useState({ start: 0, end: 0 });
@@ -94,7 +96,9 @@ export default function VerificationCodeInput({
       </View>
       <TextInput
         ref={inputRef}
-        editable={!disabled}
+        // Keep the native input focusable while a request is in flight. Android
+        // can otherwise leave it permanently unfocusable after a failed OTP.
+        editable
         value={normalizedValue}
         selection={selection}
         onChangeText={handleChangeText}

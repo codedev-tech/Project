@@ -114,6 +114,7 @@ export default function LoginScreen() {
       setResendRetry(null);
       setCode('');
       setMode('verify');
+      setMessage(`A verification code was sent to ${response.maskedEmail}.`);
     }, 'Sending verification code...');
   };
 
@@ -216,7 +217,7 @@ export default function LoginScreen() {
 
   const copy = {
     login: ['Officer Sign In', 'Use your assigned Login ID and password.'],
-    verify: ['Verify Your Login', `Enter the code sent to ${challenge?.maskedEmail || 'your official email'}.`],
+    verify: ['Verify Your Login', ''],
     forgot: ['Reset Password', 'Enter your Login ID or official email.'],
     reset: ['Create New Password', `Enter the code sent to ${challenge?.maskedEmail || 'your official email'}.`],
   }[mode];
@@ -249,7 +250,7 @@ export default function LoginScreen() {
 
           <View style={styles.formPanel}>
             <Text style={styles.title}>{copy[0]}</Text>
-            <Text style={styles.subtitle}>{copy[1]}</Text>
+            {copy[1] ? <Text style={styles.subtitle}>{copy[1]}</Text> : <View style={styles.titleSpacing} />}
 
             {mode === 'login' && (
               <>
@@ -310,9 +311,6 @@ export default function LoginScreen() {
                 />
                 {timing.expirationLabel ? <Text style={styles.passwordRequirements}>{timing.expirationLabel}</Text> : null}
                 <Feedback error={error} message={message} />
-                <Text style={styles.subtitle} accessibilityLiveRegion="polite">
-                  {pending ? pendingAction : 'Your code verifies automatically when all six digits are entered.'}
-                </Text>
                 <SubmitButton label="Verify and Continue" pending={pending} pendingLabel={pendingAction} onPress={() => { void submitVerification(); }} />
                 <TextButton label={timing.resendLabel} onPress={resend} disabled={pending || timing.resendSeconds > 0} />
                 <TextButton label="Use another account" onPress={backToLogin} disabled={pending} />
@@ -526,6 +524,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#0b1528',
   },
   title: { color: '#f8fafc', fontSize: 28, fontWeight: '800' },
+  titleSpacing: { height: 24 },
   subtitle: { marginTop: 7, marginBottom: 24, color: '#9eabc0', fontSize: 13, lineHeight: 20 },
   field: { marginBottom: 14 },
   label: { marginBottom: 7, color: '#aebbd0', fontSize: 12, fontWeight: '700' },

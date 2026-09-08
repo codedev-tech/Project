@@ -104,6 +104,7 @@ function LoginPage() {
       setResendRetry(null)
       setCode('')
       setMode('otp')
+      setMessage(`A verification code was sent to ${nextChallenge.maskedEmail}.`)
     } catch (requestError) {
       showRequestError(requestError, true)
     } finally {
@@ -262,7 +263,7 @@ function LoginPage() {
     otp: {
       badge: 'Email Verification',
       title: <>Check your <span>email.</span></>,
-      subtitle: `Enter the six-digit code sent to ${challenge?.maskedEmail || 'your official email'}.`,
+      subtitle: '',
     },
     forgot: {
       badge: 'Account Recovery',
@@ -296,7 +297,7 @@ function LoginPage() {
             <div className="login-copy">
               <div className="login-badge">{copy.badge}</div>
               <h1 id="login-title" className="login-copy-title">{copy.title}</h1>
-              <p className="login-copy-subtitle">{copy.subtitle}</p>
+              {copy.subtitle && <p className="login-copy-subtitle">{copy.subtitle}</p>}
             </div>
 
             {mode === 'login' && (
@@ -365,9 +366,6 @@ function LoginPage() {
               {fieldErrors.code && <small className="login-field-error">{fieldErrors.code}</small>}
               {timing.expirationLabel && <p className="password-requirements">{timing.expirationLabel}</p>}
               <AuthFeedback error={error} message={message} />
-              <p className="login-copy-subtitle" role="status">
-                {pending ? pendingAction : 'Your code verifies automatically when all six digits are entered.'}
-              </p>
               <SubmitButton pending={pending} pendingLabel={pendingAction} label="Verify and Continue" />
               <button type="button" className="login-text-action login-text-action--center" onClick={handleResend} disabled={pending || timing.resendSeconds > 0}>
                 {timing.resendLabel}

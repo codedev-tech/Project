@@ -42,6 +42,8 @@ describe('automatic login verification', () => {
     await fireEvent.changeText(view.getByLabelText('Six-digit verification code'), '123456');
     expect(view.getByText('Incorrect code. Check your email and enter the code again.')).toBeTruthy();
     expect(view.getByLabelText('Six-digit verification code')).toHaveProp('value', '');
+    expect(view.getByLabelText('Six-digit verification code')).toHaveProp('editable', true);
+    await fireEvent.press(view.getByLabelText('Verification code digit 1'));
     expect(verifyLoginCode).toHaveBeenCalledTimes(1);
     await fireEvent.changeText(view.getByLabelText('Six-digit verification code'), '654321');
     expect(verifyLoginCode).toHaveBeenLastCalledWith('first', '654321');
@@ -86,6 +88,9 @@ describe('automatic login verification', () => {
   });
   it('waits for the sixth digit then establishes the session without a button click', async () => {
     const view = await openVerification();
+    expect(view.getByText('A verification code was sent to o***@example.com.')).toBeTruthy();
+    expect(view.queryByText(/Enter the code sent to/)).toBeNull();
+    expect(view.queryByText(/verifies automatically/)).toBeNull();
     expect(view.getByText('Verify and Continue')).toBeTruthy();
     for (let length = 1; length <= 5; length++) {
       await fireEvent.changeText(view.getByLabelText('Six-digit verification code'), '123456'.slice(0, length));
@@ -102,7 +107,7 @@ describe('automatic login verification', () => {
     jest.mocked(verifyLoginCode).mockImplementation(() => new Promise((done) => { resolve = done; }));
     const view = await openVerification();
     await fireEvent.changeText(view.getByLabelText('Six-digit verification code'), '123456');
-    expect(view.getByLabelText('Six-digit verification code')).toHaveProp('editable', false);
+    expect(view.getByLabelText('Six-digit verification code')).toHaveProp('editable', true);
     await fireEvent.changeText(view.getByLabelText('Six-digit verification code'), '654321');
     await fireEvent.press(view.getByText('Resend code'));
     await fireEvent.press(view.getByText('Use another account'));

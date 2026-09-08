@@ -92,6 +92,9 @@ describe('automatic login verification', () => {
   })
   it('waits for the sixth typed digit, then signs in without a button click', async () => {
     await openVerification()
+    expect(screen.getByText('A verification code was sent to o***@example.com.')).toBeInTheDocument()
+    expect(screen.queryByText(/Enter the six-digit code sent to/)).not.toBeInTheDocument()
+    expect(screen.queryByText(/verifies automatically/)).not.toBeInTheDocument()
     expect(screen.getByText('Verify and Continue')).toBeInTheDocument()
     for (let index = 1; index <= 5; index++) fireEvent.change(digit(index), { target: { value: String(index) } })
     expect(verifyLoginCode).not.toHaveBeenCalled()
