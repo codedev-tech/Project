@@ -9,9 +9,9 @@ import {
 
 describe('MapControls', () => {
   it('keeps the native compass aligned as the shared header moves', () => {
-    expect(getMapTopControlPosition(24, 54, 1)).toBe(136);
-    expect(getMapTopControlPosition(24, 54, 0.5)).toBe(109);
-    expect(getMapTopControlPosition(24, 54, 0)).toBe(82);
+    expect(getMapTopControlPosition(24, 54, 1)).toBe(140);
+    expect(getMapTopControlPosition(24, 54, 0.5)).toBe(113);
+    expect(getMapTopControlPosition(24, 54, 0)).toBe(86);
   });
 
   it('routes map style and terrain interactions to the controller', async () => {

@@ -12,7 +12,8 @@ import { mobileTheme } from '../../constants/mobileTheme';
 
 export type MapMode = 'street' | 'satellite';
 
-export const MAP_TOP_CONTROLS_OFFSET = 58;
+// Search margin (5) + search height (45) + space below search (12).
+export const MAP_TOP_CONTROLS_OFFSET = 62;
 
 export function getMapTopControlPosition(
   headerTopInset: number,

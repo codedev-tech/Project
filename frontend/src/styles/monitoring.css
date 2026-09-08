@@ -378,8 +378,8 @@
   font-weight: 800;
 }
 
-.maplibre-personnel-marker.is-followed .police-marker {
-  filter: drop-shadow(0 0 7px rgba(37, 99, 235, 0.9));
+.maplibre-personnel-marker.is-followed .police-marker__photo-frame {
+  box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.2), 0 0 0 4px #2563eb;
 }
 
 .map-style-control {
@@ -770,8 +770,8 @@
 }
 
 .maplibre-personnel-marker {
-  width: 38px;
-  height: 44px;
+  width: 54px;
+  height: 63px;
 }
 
 .maplibre-personnel-marker.is-followed {
@@ -788,33 +788,42 @@
   border: 0;
 }
 
+.police-marker-shell:focus-visible {
+  outline: 2px solid #2563eb;
+  outline-offset: 4px;
+  border-radius: 8px;
+}
+
 .police-marker {
   position: relative;
-  width: 38px;
-  height: 38px;
-  display: grid;
-  place-items: center;
+  width: 54px;
+  height: 63px;
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  padding-top: 4px;
   filter: none;
 }
 
 .police-marker::after {
   content: '';
   position: absolute;
-  bottom: -4px;
+  bottom: 1px;
   left: 50%;
-  width: 10px;
-  height: 10px;
-  background: inherit;
-  border-radius: 4px;
-  transform: translateX(-50%) rotate(45deg);
+  width: 0;
+  height: 0;
+  border-left: 9px solid transparent;
+  border-right: 9px solid transparent;
+  border-top: 18px solid currentColor;
+  transform: translateX(-50%);
   z-index: 0;
 }
 
 .police-marker__photo-frame {
   position: relative;
   z-index: 1;
-  width: 34px;
-  height: 34px;
+  width: 42px;
+  height: 42px;
   border-radius: 999px;
   overflow: hidden;
   background: #ffffff;
@@ -831,7 +840,6 @@
 
 .police-marker--on-duty {
   color: var(--map-status-duty);
-  background: var(--map-status-duty);
   border-radius: 50%;
 }
 
@@ -852,6 +860,7 @@
   font-size: var(--font-size-xs);
 }
 
+.police-marker__photo[hidden],
 .police-marker__initials[hidden] { display: none; }
 
 .initials-avatar { display: inline-flex; }
@@ -859,19 +868,10 @@
 .police-marker__status-cue {
   position: absolute;
   z-index: 2;
-  top: -7px;
-  right: -9px;
-  min-width: 20px;
-  height: 20px;
-  padding: 0 3px;
-  display: grid;
-  place-items: center;
-  border: 2px solid #fff;
-  border-radius: 999px;
-  background: inherit;
-  color: #fff;
-  font-size: var(--font-size-xs);
-  font-weight: 950;
+  top: -2px;
+  left: -2px;
+  width: 24px;
+  height: 24px;
   line-height: 1;
   box-shadow: 0 2px 6px rgba(15, 23, 42, 0.3);
 }
@@ -879,32 +879,27 @@
 .police-marker--operation,
 .police-marker--ongoing-case {
   color: var(--map-status-operation);
-  background: var(--map-status-operation);
   border-radius: 50%;
 }
 
 .police-marker--monitoring {
   color: #2563eb;
-  background: #2563eb;
   border-radius: 50%;
 }
 
 .police-marker--default {
-  color: #3b82f6;
-  background: #3b82f6;
+  color: var(--map-status-duty);
 }
 
 .police-marker--boundary,
 .police-marker--out-of-boundary {
   color: var(--map-status-boundary);
-  background: var(--map-status-boundary);
   border-radius: 50%;
 }
 
 .police-marker--backup,
 .police-marker--critical {
   color: var(--map-status-backup);
-  background: var(--map-status-backup);
   border-radius: 50%;
 }
 

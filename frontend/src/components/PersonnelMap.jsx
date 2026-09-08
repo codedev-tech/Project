@@ -29,6 +29,7 @@ import {
 } from '../utils/mapLibreLayers'
 import { addMobileLikeNavigationControls } from '../utils/mapNavigation'
 import { createPersonnelClusterCache, isValidMapPosition } from '../utils/personnelClusters'
+import { MAP_STATUS_LEGEND } from '../utils/mapStatusLegend'
 import {
   MARKER_ANIMATION_DURATION_MS,
   confirmedFixFromMember,
@@ -84,11 +85,17 @@ const getMarkerClass = (member) => {
   return getMarkerStatusClass(member.status)
 }
 
-const getMarkerCue = (member) => {
-  if (member.emergencyActive) return 'SOS'
-  if (member.isInsideCabagan === false) return '!'
-  if (member.operationActive) return 'OP'
-  return '✓'
+const updateMarkerCue = (element, member) => {
+  const markerClass = getMarkerClass(member)
+  const tone = markerClass.includes('backup') || markerClass.includes('critical') ? 'backup'
+    : markerClass.includes('boundary') ? 'boundary'
+      : markerClass.includes('operation') ? 'operation' : 'duty'
+  const item = MAP_STATUS_LEGEND.find((status) => status.tone === tone)
+  element.className = `map-legend__marker map-legend__marker--${tone} police-marker__status-cue`
+  element.title = item.label
+  element.setAttribute('aria-label', item.label)
+  if (!element.firstChild) element.append(document.createElement('span'))
+  element.firstChild.textContent = item.cue
 }
 
 const getInitials = (name = '') => name
@@ -126,8 +133,7 @@ const createPersonnelMarkerElement = (member, onSelect) => {
   })
 
   const statusCue = document.createElement('span')
-  statusCue.className = 'police-marker__status-cue'
-  statusCue.textContent = getMarkerCue(member)
+  updateMarkerCue(statusCue, member)
 
   photoFrame.append(photo)
   photoFrame.append(initials)
@@ -541,8 +547,7 @@ function PersonnelMap({
       state.element.classList.toggle('is-followed', member.id === followedPersonnelId)
       state.element.setAttribute('aria-label', `View ${member.name} on live map`)
       state.pin.className = `police-marker ${getMarkerClass(member)}`
-      state.statusCue.textContent = getMarkerCue(member)
-      state.statusCue.hidden = !state.statusCue.textContent
+      updateMarkerCue(state.statusCue, member)
       const nextPhoto = member.photoUrl || ''
       if (state.photo.dataset.intendedSource !== nextPhoto) {
         state.photo.dataset.intendedSource = nextPhoto

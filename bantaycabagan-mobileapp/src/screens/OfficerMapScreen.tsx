@@ -428,28 +428,48 @@ export default function OfficerMapScreen({
           </View>
         )}
 
-        <View style={styles.topUtilityRow}>
-          {deploymentPromptVisible && (
-            <View style={[
-              styles.deploymentPill,
-              { backgroundColor: colors.surface, borderColor: colors.border },
-            ]}>
-              <Icon name="place" size={17} color={colors.blue} />
-              <View style={styles.deploymentText}>
-                <Text style={[styles.deploymentLabel, { color: colors.textMuted }]}>CURRENT DEPLOYMENT</Text>
-                <Text style={[styles.deploymentArea, { color: colors.text }]} numberOfLines={1}>
-                  {assignment?.patrolArea || 'No active assignment'}
-                </Text>
-                <GpsReadingAge recordedAt={currentOfficer.locationRecordedAt} color={colors.textMuted} />
+        <View style={styles.topUtilityRow} pointerEvents="box-none">
+          <View style={styles.mapStatusStack} pointerEvents="box-none">
+            {followedOfficer && !selectedOfficer && (
+              <View style={styles.followBanner}>
+                <Icon name="near-me" size={17} color="#93c5fd" />
+                <View style={styles.followBannerContent}>
+                  <Text style={styles.followBannerText} numberOfLines={1}>
+                    Following <Text style={styles.followBannerName}>{followedOfficer.name}</Text>
+                  </Text>
+                  <GpsReadingAge recordedAt={followedOfficer.locationRecordedAt} />
+                </View>
+                <TouchableOpacity
+                  accessibilityLabel={`Stop following ${followedOfficer.name}`}
+                  style={styles.followBannerStop}
+                  onPress={handleStopFollowing}
+                >
+                  <Text style={styles.followBannerStopText}>Stop</Text>
+                </TouchableOpacity>
               </View>
-              <Text style={[
-                styles.liveText,
-                (!isConnected || !hasCurrentGpsFix) && styles.offlineText,
+            )}
+            {deploymentPromptVisible && (
+              <View style={[
+                styles.deploymentPill,
+                { backgroundColor: colors.surface, borderColor: colors.border },
               ]}>
-                {!isConnected ? 'OFFLINE' : (hasCurrentGpsFix ? 'LIVE' : 'GPS STALE')}
-              </Text>
-            </View>
-          )}
+                <Icon name="place" size={17} color={colors.blue} />
+                <View style={styles.deploymentText}>
+                  <Text style={[styles.deploymentLabel, { color: colors.textMuted }]}>CURRENT DEPLOYMENT</Text>
+                  <Text style={[styles.deploymentArea, { color: colors.text }]} numberOfLines={1}>
+                    {assignment?.patrolArea || 'No active assignment'}
+                  </Text>
+                  <GpsReadingAge recordedAt={currentOfficer.locationRecordedAt} color={colors.textMuted} />
+                </View>
+                <Text style={[
+                  styles.liveText,
+                  (!isConnected || !hasCurrentGpsFix) && styles.offlineText,
+                ]}>
+                  {!isConnected ? 'OFFLINE' : (hasCurrentGpsFix ? 'LIVE' : 'GPS STALE')}
+                </Text>
+              </View>
+            )}
+          </View>
 
           <View style={styles.mapControlStack}>
             <MapControls
@@ -478,25 +498,6 @@ export default function OfficerMapScreen({
         </View>
 
       </AnimatedSafeAreaView>
-
-      {followedOfficer && !selectedOfficer && (
-        <View style={styles.followBanner}>
-          <Icon name="near-me" size={17} color="#93c5fd" />
-          <View style={styles.followBannerContent}>
-            <Text style={styles.followBannerText} numberOfLines={1}>
-              Following <Text style={styles.followBannerName}>{followedOfficer.name}</Text>
-            </Text>
-            <GpsReadingAge recordedAt={followedOfficer.locationRecordedAt} />
-          </View>
-          <TouchableOpacity
-            accessibilityLabel={`Stop following ${followedOfficer.name}`}
-            style={styles.followBannerStop}
-            onPress={handleStopFollowing}
-          >
-            <Text style={styles.followBannerStopText}>Stop</Text>
-          </TouchableOpacity>
-        </View>
-      )}
 
       {deploymentPromptVisible && !selectedOfficer && (
         <View style={[
@@ -620,19 +621,19 @@ const styles = StyleSheet.create({
   connectionDotOffline: { backgroundColor: mobileTheme.danger },
   topUtilityRow: {
     minHeight: 44,
-    marginTop: 8,
+    marginTop: 12,
     flexDirection: 'row',
     justifyContent: 'flex-end',
     alignItems: 'flex-start',
-    gap: 8,
+    gap: 12,
   },
+  mapStatusStack: { flex: 1, minWidth: 0, gap: 8 },
   mapControlStack: {
     width: 46,
     alignItems: 'flex-end',
     gap: 8,
   },
   deploymentPill: {
-    flex: 1,
     minHeight: 44,
     paddingHorizontal: 11,
     flexDirection: 'row',
@@ -653,10 +654,6 @@ const styles = StyleSheet.create({
   liveText: { color: mobileTheme.success, fontSize: 10, fontWeight: '800' },
   offlineText: { color: mobileTheme.danger },
   followBanner: {
-    position: 'absolute',
-    top: 142,
-    left: 20,
-    right: 78,
     minHeight: 42,
     paddingLeft: 12,
     paddingRight: 5,
