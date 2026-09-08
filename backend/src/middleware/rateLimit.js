@@ -66,6 +66,8 @@ const createRateLimit = ({
 				return res.status(429).json({
 					success: false,
 					code: 'RATE_LIMITED',
+					retryAt: new Date(now + windowMs).toISOString(),
+					serverTime: new Date(now).toISOString(),
 					message: 'Too many requests. Please try again later.',
 				})
 			}
@@ -93,6 +95,8 @@ const createRateLimit = ({
 	return res.status(429).json({
 		success: false,
 		code: 'RATE_LIMITED',
+		retryAt: new Date(bucket.resetAt).toISOString(),
+		serverTime: new Date(now).toISOString(),
 		message: 'Too many requests. Please try again later.',
 	})
 }

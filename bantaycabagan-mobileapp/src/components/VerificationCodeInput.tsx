@@ -1,4 +1,4 @@
-import React, { useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   Pressable,
   StyleSheet,
@@ -15,6 +15,8 @@ type Props = {
   onChangeText: (value: string) => void;
   dark?: boolean;
   invalid?: boolean;
+  disabled?: boolean;
+  focusRequest?: number;
 };
 
 export default function VerificationCodeInput({
@@ -22,8 +24,17 @@ export default function VerificationCodeInput({
   onChangeText,
   dark = false,
   invalid = false,
+  disabled = false,
+  focusRequest = 0,
 }: Props) {
   const inputRef = useRef<TextInput>(null);
+  const focusedRequest = useRef(0);
+  useEffect(() => {
+    if (!disabled && focusRequest !== focusedRequest.current) {
+      focusedRequest.current = focusRequest;
+      inputRef.current?.focus();
+    }
+  }, [disabled, focusRequest]);
   const [focused, setFocused] = useState(false);
   const [selection, setSelection] = useState({ start: 0, end: 0 });
   const normalizedValue = value.replace(/\D/g, '').slice(0, CODE_LENGTH);
@@ -33,6 +44,7 @@ export default function VerificationCodeInput({
   );
 
   const focusDigit = (index: number) => {
+    if (disabled) return;
     const start = Math.min(index, normalizedValue.length);
     const nextSelection = {
       start,
@@ -47,6 +59,7 @@ export default function VerificationCodeInput({
   };
 
   const handleChangeText = (nextValue: string) => {
+    if (disabled) return;
     const nextCode = nextValue.replace(/\D/g, '').slice(0, CODE_LENGTH);
     onChangeText(nextCode);
     setSelection({ start: nextCode.length, end: nextCode.length });
@@ -62,6 +75,7 @@ export default function VerificationCodeInput({
             <Pressable
               key={index}
               onPress={() => focusDigit(index)}
+              disabled={disabled}
               accessibilityRole="button"
               accessibilityLabel={`Verification code digit ${index + 1}`}
               style={[
@@ -80,6 +94,7 @@ export default function VerificationCodeInput({
       </View>
       <TextInput
         ref={inputRef}
+        editable={!disabled}
         value={normalizedValue}
         selection={selection}
         onChangeText={handleChangeText}

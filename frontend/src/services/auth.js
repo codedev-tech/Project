@@ -4,7 +4,10 @@ export { AUTH_TOKEN_KEY, AUTH_USER_KEY } from './sessionKeys'
 // Every auth call authenticates via the httpOnly session cookie the browser
 // sends automatically (apiRequest uses credentials: 'include'); no bearer token
 // is passed in from JavaScript.
-const request = (path, options = {}) => apiRequest(path, options)
+const request = async (path, options = {}) => {
+  const response = await apiRequest(path, options)
+  return response.challengeId ? { ...response, receivedAt: Date.now() } : response
+}
 
 export const beginLogin = (username, password) => request('/api/auth/login', {
   method: 'POST',

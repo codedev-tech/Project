@@ -1,3 +1,4 @@
+import { requestErrorMessage } from '../utils/requestFeedback';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { fetchPersonnel } from '../services/personnelService';
@@ -16,7 +17,7 @@ export const usePersonnel = () => {
       const data = await fetchPersonnel();
       setPersonnel(data);
     } catch (loadError) {
-      setError(loadError instanceof Error ? loadError.message : 'Failed to load personnel.');
+      setError(requestErrorMessage(loadError, { action: 'load personnel' }));
     } finally {
       setLoading(false);
     }

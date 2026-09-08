@@ -21,9 +21,11 @@ import App from './App.jsx'
 import { AuthProvider } from './context/AuthContext.jsx'
 import { FeedbackProvider } from './context/FeedbackContext.jsx'
 import { PersonnelProvider } from './context/PersonnelContext.jsx'
+import AppErrorBoundary from './components/AppErrorBoundary.jsx'
 
 createRoot(document.getElementById('root')).render(
   <StrictMode>
+    <AppErrorBoundary>
     <BrowserRouter>
       {/*
         PersonnelProvider runs the usePersonnelRealtime hook once at the very
@@ -38,5 +40,6 @@ createRoot(document.getElementById('root')).render(
         </AuthProvider>
       </FeedbackProvider>
     </BrowserRouter>
+    </AppErrorBoundary>
   </StrictMode>,
 )

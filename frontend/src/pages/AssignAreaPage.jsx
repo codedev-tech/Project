@@ -1,3 +1,4 @@
+import { requestErrorMessage } from '../utils/requestFeedback'
 import { useDeferredValue, useEffect, useMemo, useRef, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { useFeedback } from '../context/useFeedback'
@@ -116,7 +117,7 @@ function AssignAreaPage({ view = 'form' }) {
         }
       })
       .catch((error) => {
-        if (isCurrent) showFeedback(error.message, { type: 'error', title: 'Deployments unavailable' })
+        if (isCurrent) showFeedback(requestErrorMessage(error, { action: 'load deployments' }), { type: 'error', title: 'Deployments unavailable' })
       })
       .finally(() => {
         if (isCurrent) setIsDeploymentsLoading(false)
@@ -158,7 +159,7 @@ function AssignAreaPage({ view = 'form' }) {
       showFeedback(successMessage, { type: 'success' })
       return true
     } catch (error) {
-      showFeedback(error.message, { type: 'error', title: 'Deployment not saved' })
+      showFeedback(requestErrorMessage(error, { action: 'save deployment changes', write: true }), { type: 'error', title: 'Deployment update needs attention' })
       return false
     } finally {
       setIsSaving(false)

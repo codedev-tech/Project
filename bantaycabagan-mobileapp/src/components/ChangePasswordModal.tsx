@@ -1,3 +1,4 @@
+import { requestErrorMessage } from '../utils/requestFeedback';
 import React, { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
@@ -81,7 +82,7 @@ export default function ChangePasswordModal({
       setChallenge(response);
       setStep('verify');
     } catch (requestError) {
-      setError(requestError instanceof Error ? requestError.message : 'Unable to send a verification code. Try again.');
+      setError(requestErrorMessage(requestError, { action: 'send a verification code', write: true, recovery: 'Check your connection and your email for the latest code before requesting another one.' }));
     } finally {
       setPending(false);
     }
@@ -121,7 +122,7 @@ export default function ChangePasswordModal({
       await confirmPasswordChange(token, challenge.challengeId, code, newPassword);
       close(onChanged);
     } catch (requestError) {
-      setError(requestError instanceof Error ? requestError.message : 'Unable to update your password. Try again.');
+      setError(requestErrorMessage(requestError, { action: 'change your password', write: true, recovery: 'Check your connection. If necessary, sign in with your new password to check whether the change completed before requesting another change.' }));
     } finally {
       setPending(false);
     }
@@ -138,7 +139,7 @@ export default function ChangePasswordModal({
       setCode('');
       setMessage(`A new code was sent to ${response.maskedEmail}.`);
     } catch (requestError) {
-      setError(requestError instanceof Error ? requestError.message : 'Unable to resend the verification code. Try again.');
+      setError(requestErrorMessage(requestError, { action: 'resend the verification code', write: true, recovery: 'Check your connection and your email for the latest code before requesting another one.' }));
     } finally {
       setPending(false);
     }

@@ -1,3 +1,4 @@
+import { requestErrorMessage } from '../utils/requestFeedback'
 /**
  * SettingsPage.jsx — System Configuration
  *
@@ -68,10 +69,10 @@ function SettingsPage() {
     try {
       const accounts = await getAccounts()
       if (request === accountsRequest.current) setCreatedAccounts(accounts)
-    } catch {
+    } catch (error) {
       if (request !== accountsRequest.current) return
       setAccountsError('Accounts could not be refreshed. Previously loaded data may be outdated.')
-      setFormMessage('Accounts could not be loaded from the database. Check the backend connection.')
+      setFormMessage(requestErrorMessage(error, { action: 'load accounts' }))
       setFormMessageKind('error')
     } finally {
       if (request === accountsRequest.current) setAccountsLoading(false)
@@ -94,7 +95,7 @@ function SettingsPage() {
         setFlespiDevices([])
         setDevicesSetupPending(true)
       } else {
-        setDevicesError('GPS devices could not be loaded. Check the connection, then refresh.')
+        setDevicesError(requestErrorMessage(error, { action: 'load GPS devices' }))
       }
     } finally {
       if (request === devicesRequest.current) setDevicesLoading(false)
@@ -243,7 +244,7 @@ function SettingsPage() {
       )
       setFormMessageKind('success')
     } catch (error) {
-      setFormMessage(error.message)
+      setFormMessage(requestErrorMessage(error, { action: 'deactivate the account', write: true }))
       setFormMessageKind('error')
     } finally {
       setAccountRequestPending(false)
@@ -348,11 +349,11 @@ function SettingsPage() {
         }
         const formField = fieldMap[error.field]
         if (formField) {
-          setFormErrors((prev) => ({ ...prev, [formField]: error.message }))
+          setFormErrors((prev) => ({ ...prev, [formField]: requestErrorMessage(error, { action: 'save the account', write: true }) }))
           return
         }
       }
-      setFormMessage(error.message)
+      setFormMessage(requestErrorMessage(error, { action: 'save the account', write: true }))
       setFormMessageKind('error')
     } finally {
       setAccountRequestPending(false)

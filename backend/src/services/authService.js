@@ -93,11 +93,14 @@ const createVerificationChallenge = async (
 		createdAt: { $gte: new Date(Date.now() - OTP_RATE_WINDOW_MS) },
 	})
 	if (recentCount >= OTP_RATE_LIMIT) {
-		throw createAuthError(
-			'Too many verification codes were requested. Please wait 15 minutes before trying again.',
+		const oldest = await EmailVerification.findOne({ userId: user._id, createdAt: { $gte: new Date(Date.now() - OTP_RATE_WINDOW_MS) } }).sort({ createdAt: 1 })
+		const error = createAuthError(
+			'Too many codes requested. Please wait before requesting another code.',
 			429,
 			'OTP_RATE_LIMITED',
 		)
+		error.retryAt = new Date((oldest?.createdAt?.getTime() || Date.now()) + OTP_RATE_WINDOW_MS).toISOString()
+		throw error
 	}
 
 	await EmailVerification.updateMany(
@@ -118,10 +121,15 @@ const createVerificationChallenge = async (
 
 	try {
 		await sendVerificationCode({ email, code, purpose })
+		const oldest = recentCount + 1 >= OTP_RATE_LIMIT
+			? await EmailVerification.findOne({ userId: user._id, createdAt: { $gte: new Date(Date.now() - OTP_RATE_WINDOW_MS) } }).sort({ createdAt: 1 })
+			: null
 		return {
 			challengeId: String(challenge._id),
 			maskedEmail: maskEmail(email),
 			expiresAt: challenge.expiresAt.toISOString(),
+			serverTime: new Date().toISOString(),
+			resendAvailableAt: new Date(oldest ? oldest.createdAt.getTime() + OTP_RATE_WINDOW_MS : Date.now()).toISOString(),
 		}
 	} catch (error) {
 		await EmailVerification.deleteOne({ _id: challenge._id })
@@ -184,9 +192,9 @@ const consumeChallenge = async (
 		if (challenge.attempts >= challenge.maxAttempts) challenge.consumedAt = new Date()
 		await challenge.save()
 		throw createAuthError(
-			'The verification code is incorrect. Check the code and try again.',
-			400,
-			'INVALID_OTP',
+			challenge.consumedAt ? 'Too many incorrect attempts. Request a new code to continue.' : 'Incorrect code. Check your email and enter the code again.',
+			challenge.consumedAt ? 429 : 400,
+			challenge.consumedAt ? 'OTP_ATTEMPTS_EXCEEDED' : 'INCORRECT_OTP',
 		)
 	}
 

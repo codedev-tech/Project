@@ -1,9 +1,10 @@
 import { Navigate, Outlet } from 'react-router-dom'
 import { useAuth } from '../context/useAuth'
 import { AuthLoadingSkeleton } from './LoadingSkeleton'
+import SessionRecovery from './SessionRecovery'
 
 function GuestOnlyRoute() {
-  const { loading, isAuthenticated } = useAuth()
+  const { loading, isAuthenticated, sessionError } = useAuth()
 
   if (loading) {
     return <AuthLoadingSkeleton />
@@ -13,6 +14,7 @@ function GuestOnlyRoute() {
     return <Navigate to="/" replace />
   }
 
+  if (sessionError) return <SessionRecovery />
   return <Outlet />
 }
 

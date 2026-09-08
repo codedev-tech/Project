@@ -1,3 +1,4 @@
+import { requestErrorMessage } from '../utils/requestFeedback';
 import React, {
   useCallback,
   useEffect,
@@ -257,7 +258,7 @@ export default function OfficerMapScreen({
     try {
       await acknowledgeDeployment(assignment.id);
     } catch (error) {
-      Alert.alert('Unable to confirm assignment', (error as Error).message);
+      Alert.alert('Unable to confirm assignment', requestErrorMessage(error, { action: 'confirm your deployment', write: true }));
     } finally {
       setAssignmentAcknowledgementPending(false);
     }
@@ -286,7 +287,7 @@ export default function OfficerMapScreen({
               await createBackupRequest();
               Alert.alert('Backup requested', 'The request is now visible in Tasks.');
             } catch (error) {
-              Alert.alert('Request failed', (error as Error).message);
+              Alert.alert('Backup request needs attention', requestErrorMessage(error, { action: 'request backup', write: true }));
             } finally {
               setBackupActionPending(false);
             }
@@ -313,7 +314,7 @@ export default function OfficerMapScreen({
               await cancelBackupRequest(activeOwnBackupRequest.id);
               Alert.alert('Backup cancelled', 'The backup request has been closed.');
             } catch (error) {
-              Alert.alert('Unable to cancel backup', (error as Error).message);
+              Alert.alert('Unable to cancel backup', requestErrorMessage(error, { action: 'cancel the backup request', write: true }));
             } finally {
               setBackupActionPending(false);
             }

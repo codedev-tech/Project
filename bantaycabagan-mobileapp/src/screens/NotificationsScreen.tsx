@@ -178,7 +178,7 @@ export default function NotificationsScreen({
             ) : null}
             <TouchableOpacity
               style={[styles.loadMoreButton, { borderColor: colors.border }]}
-              onPress={() => loadMoreNotifications().catch(() => undefined)}
+              onPress={() => (notificationsError ? refreshNotifications() : loadMoreNotifications()).catch(() => undefined)}
               disabled={isLoadingMore}
             >
               {isLoadingMore ? (

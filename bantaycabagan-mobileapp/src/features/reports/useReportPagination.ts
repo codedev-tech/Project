@@ -1,3 +1,4 @@
+import { requestErrorMessage } from '../../utils/requestFeedback';
 import { useCallback, useRef, useState, type Dispatch, type SetStateAction } from 'react';
 import { fetchReportPage } from '../../services/operationsApi';
 import type { PoliceReport } from '../../types/operations';
@@ -60,9 +61,7 @@ export function useReportPagination({
       if (requestId === reportRequestId.current) {
         setReports([]);
         setReportsHasMore(false);
-        setReportsError(error instanceof Error
-          ? error.message
-          : 'Unable to load reports. Check your connection and try again.');
+        setReportsError(requestErrorMessage(error, { action: 'load reports' }));
       }
       throw error;
     } finally {
@@ -85,9 +84,7 @@ export function useReportPagination({
       setReportCursor(payload.pagination.nextCursor);
       setReportsHasMore(payload.pagination.hasNextPage);
     } catch (error) {
-      setReportsError(error instanceof Error
-        ? error.message
-        : 'Unable to load previous reports. Check your connection and try again.');
+      setReportsError(requestErrorMessage(error, { action: 'load previous reports' }));
       throw error;
     } finally {
       setIsReportsLoadingMore(false);

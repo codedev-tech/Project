@@ -1,3 +1,5 @@
+import { requestErrorMessage } from '../utils/requestFeedback'
+import SystemStatusBanner from '../components/SystemStatusBanner'
 import { useCallback, useEffect, useState } from 'react'
 import { ArrowLeft, Download, ImageOff, Moon, RefreshCw, ShieldCheck, Sun } from 'lucide-react'
 import { EvidenceLoadingSkeleton, SkeletonBlock } from '../components/LoadingSkeleton'
@@ -43,7 +45,7 @@ function EvidenceViewerPage() {
             reportId,
             status: 'error',
             report: null,
-            error: error.message || 'Unable to load the report evidence.',
+            error: requestErrorMessage(error, { action: 'load the report evidence' }),
           })
         }
       })
@@ -114,6 +116,7 @@ function EvidenceViewerPage() {
         </div>
       </header>
 
+      <SystemStatusBanner />
       <div className="evidence-viewer__content">
         {activeState.status === 'loading' && (
           <EvidenceLoadingSkeleton />

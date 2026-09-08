@@ -1,3 +1,4 @@
+import { requestErrorMessage } from '../utils/requestFeedback'
 import { useState } from 'react'
 import { Eye, EyeOff } from 'lucide-react'
 import { confirmPasswordChange, requestPasswordChange, resendVerificationCode } from '../services/auth'
@@ -58,7 +59,7 @@ function PasswordChangeModal({ open, onClose, onChanged }) {
       setChallenge(nextChallenge)
       setStep('verify')
     } catch (requestError) {
-      setError(requestError.message)
+      setError(requestErrorMessage(requestError, { action: 'send a verification code', write: true, recovery: 'Check your connection and your email for the latest code before requesting another one.' }))
     } finally {
       setPending(false)
     }
@@ -99,7 +100,7 @@ function PasswordChangeModal({ open, onClose, onChanged }) {
       resetAndClose()
       onChanged()
     } catch (requestError) {
-      setError(requestError.message)
+      setError(requestErrorMessage(requestError, { action: 'change your password', write: true, recovery: 'Check your connection. If necessary, sign in with your new password to check whether the change completed before requesting another change.' }))
     } finally {
       setPending(false)
     }
@@ -115,7 +116,7 @@ function PasswordChangeModal({ open, onClose, onChanged }) {
       setCode('')
       setMessage(`A new code was sent to ${nextChallenge.maskedEmail}.`)
     } catch (requestError) {
-      setError(requestError.message)
+      setError(requestErrorMessage(requestError, { action: 'resend the verification code', write: true, recovery: 'Check your connection and your email for the latest code before requesting another one.' }))
     } finally {
       setPending(false)
     }

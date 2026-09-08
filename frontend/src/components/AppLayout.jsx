@@ -25,6 +25,7 @@ import { usePersonnelContext } from '../context/usePersonnelContext'
 import NavSidebar from './NavSidebar'
 import MobileNavigation from './MobileNavigation'
 import TopBar from './TopBar'
+import SystemStatusBanner from './SystemStatusBanner'
 
 function AppLayout() {
   // Controls whether sidebar is expanded (220 px) or icon-only (64 px)
@@ -74,6 +75,7 @@ function AppLayout() {
         />
 
         {/* React Router renders the matched child page component here */}
+        <SystemStatusBanner />
         <Outlet />
       </div>
     </div>

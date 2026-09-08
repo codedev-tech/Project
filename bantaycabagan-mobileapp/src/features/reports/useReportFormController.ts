@@ -1,3 +1,4 @@
+import { requestErrorMessage } from '../../utils/requestFeedback';
 import { useState } from 'react';
 import { Alert } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
@@ -57,36 +58,40 @@ export function useReportFormController({
   };
 
   const captureEvidencePhoto = async (cameraFacing: 'front' | 'back') => {
-    const permission = await ImagePicker.requestCameraPermissionsAsync();
-    if (!permission.granted) {
-      Alert.alert(
-        'Camera permission required',
-        'Allow camera access in your phone settings to capture report evidence.',
-      );
-      return;
-    }
-    const result = await ImagePicker.launchCameraAsync({
-      cameraType: cameraFacing === 'front'
-        ? ImagePicker.CameraType.front
-        : ImagePicker.CameraType.back,
-      quality: 0.72,
-      allowsEditing: false,
-      exif: false,
-    });
-    if (result.canceled || !result.assets[0]) return;
-    const asset = result.assets[0];
-    const mimeType = asset.mimeType || 'image/jpeg';
-    const extension = mimeType === 'image/png' ? 'png' : mimeType === 'image/webp' ? 'webp' : 'jpg';
-    const previousEvidenceUri = evidencePhoto?.uri;
-    setEvidencePhoto({
-      uri: asset.uri,
-      name: asset.fileName || `report-evidence-${Date.now()}.${extension}`,
-      type: mimeType,
-      camera_facing: cameraFacing,
-      captured_at: new Date().toISOString(),
-    });
-    if (previousEvidenceUri && previousEvidenceUri !== asset.uri) {
-      discardTemporaryEvidence(previousEvidenceUri).catch(() => undefined);
+    try {
+      const permission = await ImagePicker.requestCameraPermissionsAsync();
+      if (!permission.granted) {
+        Alert.alert(
+          'Camera permission required',
+          'Allow camera access in your phone settings to capture report evidence.',
+        );
+        return;
+      }
+      const result = await ImagePicker.launchCameraAsync({
+        cameraType: cameraFacing === 'front'
+          ? ImagePicker.CameraType.front
+          : ImagePicker.CameraType.back,
+        quality: 0.72,
+        allowsEditing: false,
+        exif: false,
+      });
+      if (result.canceled || !result.assets[0]) return;
+      const asset = result.assets[0];
+      const mimeType = asset.mimeType || 'image/jpeg';
+      const extension = mimeType === 'image/png' ? 'png' : mimeType === 'image/webp' ? 'webp' : 'jpg';
+      const previousEvidenceUri = evidencePhoto?.uri;
+      setEvidencePhoto({
+        uri: asset.uri,
+        name: asset.fileName || `report-evidence-${Date.now()}.${extension}`,
+        type: mimeType,
+        camera_facing: cameraFacing,
+        captured_at: new Date().toISOString(),
+      });
+      if (previousEvidenceUri && previousEvidenceUri !== asset.uri) {
+        discardTemporaryEvidence(previousEvidenceUri).catch(() => undefined);
+      }
+    } catch {
+      Alert.alert('Camera unavailable', 'Could not open the camera or capture the photo. Close other camera apps, check camera permission, and try again.');
     }
   };
 
@@ -187,7 +192,7 @@ export function useReportFormController({
         ...form,
         ...(evidencePhoto && { evidence_photo: evidencePhoto }),
       });
-      await discardTemporaryEvidence(evidencePhoto?.uri);
+      await discardTemporaryEvidence(evidencePhoto?.uri).catch(() => undefined);
       setEvidencePhoto(null);
       setForm(createEmptyReportForm());
       close(() => Alert.alert(
@@ -199,7 +204,7 @@ export function useReportFormController({
             : 'The activity report was saved to your history.',
       ));
     } catch (error) {
-      Alert.alert('Submission failed', (error as Error).message);
+      Alert.alert('Report submission needs attention', requestErrorMessage(error, { action: 'submit the report', write: true }));
     } finally {
       setIsSaving(false);
     }
@@ -218,7 +223,7 @@ export function useReportFormController({
         Alert.alert('Incident resolved', 'Web Reports and Analytics were updated automatically.');
       });
     } catch (error) {
-      Alert.alert('Unable to resolve incident', (error as Error).message);
+      Alert.alert('Unable to resolve incident', requestErrorMessage(error, { action: 'resolve the incident', write: true }));
     } finally {
       setIsSaving(false);
     }

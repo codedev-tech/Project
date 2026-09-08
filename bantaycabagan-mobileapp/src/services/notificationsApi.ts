@@ -1,5 +1,6 @@
 import { API_URL } from './apiConfig';
 import { requestJson } from './requestJson';
+import { ApiRequestError } from './ApiRequestError';
 import type { OfficerNotification } from '../types/notifications';
 import type { CursorPagination } from './operationsApi';
 
@@ -12,7 +13,7 @@ const request = async <T>(path: string, token: string, options: RequestInit = {}
       ...options.headers,
     },
   });
-  if (!response.ok) throw new Error(payload.message || 'Notification request failed.');
+  if (!response.ok) throw new ApiRequestError(payload.message || 'Notification request failed.', response.status, payload.code, payload.field);
   return payload as T;
 };
 

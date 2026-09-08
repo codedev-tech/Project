@@ -1,8 +1,10 @@
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { Eye, EyeOff } from 'lucide-react'
 import pnpLogo from '../assets/pnp-logo.png'
 import VerificationCodeInput from '../components/VerificationCodeInput'
+import { verificationFeedback } from '../features/auth/verificationFeedback'
+import { useVerificationTiming } from '../features/auth/useVerificationTiming'
 import { COMPLETE_CODE_MESSAGE, PASSWORD_REQUIREMENTS } from '../features/auth/authCopy'
 import { useAuth } from '../context/useAuth'
 import {
@@ -48,6 +50,11 @@ function LoginPage() {
   const [fieldErrors, setFieldErrors] = useState({})
   const [message, setMessage] = useState('')
   const [pending, setPending] = useState(false)
+  const [pendingAction, setPendingAction] = useState('')
+  const [resendRetry, setResendRetry] = useState(null)
+  const [focusRequest, setFocusRequest] = useState(0)
+  const timing = useVerificationTiming(challenge, resendRetry)
+  const verificationBusy = useRef(false)
   const navigate = useNavigate()
   const location = useLocation()
   const { establishSession } = useAuth()
@@ -66,6 +73,16 @@ function LoginPage() {
     })
   }
 
+  const showRequestError = (requestError, sendingCode = false) => {
+    const feedback = verificationFeedback(requestError)
+    setError(feedback.message)
+    if (feedback.clearCode) {
+      setCode('')
+      setFocusRequest((value) => value + 1)
+    }
+    if (sendingCode && requestError.retryAt) setResendRetry(requestError)
+  }
+
   const handleLogin = async (event) => {
     event.preventDefault()
     clearFeedback()
@@ -79,37 +96,56 @@ function LoginPage() {
     if (Object.keys(nextFieldErrors).length > 0) {
       return
     }
+    setPendingAction('Sending verification code...')
     setPending(true)
     try {
       const nextChallenge = await beginLogin(accountId.trim(), password)
       setChallenge(nextChallenge)
+      setResendRetry(null)
       setCode('')
       setMode('otp')
     } catch (requestError) {
-      setError(requestError.message)
+      showRequestError(requestError, true)
     } finally {
       setPending(false)
     }
   }
 
-  const handleVerifyLogin = async (event) => {
-    event.preventDefault()
+  const verifyCode = async (nextCode) => {
+    if (pending || verificationBusy.current || !challenge) return
     clearFeedback()
-    if (code.length !== 6) {
+    if (nextCode.length !== 6) {
       setFieldErrors({ code: COMPLETE_CODE_MESSAGE })
       return
     }
     setFieldErrors({})
+    verificationBusy.current = true
+    setPendingAction('Verifying code...')
     setPending(true)
     try {
-      const session = await verifyLoginCode(challenge.challengeId, code)
+      const session = await verifyLoginCode(challenge.challengeId, nextCode)
       establishSession(session)
       navigate(location.state?.from || '/', { replace: true })
     } catch (requestError) {
-      setError(requestError.message)
+      showRequestError(requestError)
     } finally {
+      verificationBusy.current = false
       setPending(false)
     }
+  }
+
+  const handleVerifyLogin = (event) => {
+    event.preventDefault()
+    void verifyCode(code)
+  }
+
+  const handleLoginCodeChange = (nextCode) => {
+    if (pending || verificationBusy.current || nextCode === code) return
+    setCode(nextCode)
+    clearFieldError('code')
+    clearFeedback()
+    // Submit the newly entered value directly; state still contains the previous digit.
+    if (nextCode.length === 6) void verifyCode(nextCode)
   }
 
   const handleForgotPassword = async (event) => {
@@ -121,18 +157,20 @@ function LoginPage() {
       return
     }
     setFieldErrors({})
+    setPendingAction('Sending reset code...')
     setPending(true)
     try {
       const nextChallenge = await requestPasswordReset(identifier.trim())
       if (nextChallenge.challengeId) {
         setChallenge(nextChallenge)
+        setResendRetry(null)
         setCode('')
         setMode('reset')
       } else {
         setMessage(nextChallenge.message)
       }
     } catch (requestError) {
-      setError(requestError.message)
+      showRequestError(requestError, true)
     } finally {
       setPending(false)
     }
@@ -159,6 +197,7 @@ function LoginPage() {
     if (Object.keys(nextFieldErrors).length > 0) {
       return
     }
+    setPendingAction('Resetting password...')
     setPending(true)
     try {
       await resetPassword(challenge.challengeId, code, newPassword)
@@ -169,40 +208,48 @@ function LoginPage() {
       setConfirmPassword('')
       setMessage('Password updated. Sign in with your new password.')
     } catch (requestError) {
-      setError(requestError.message)
+      showRequestError(requestError)
     } finally {
       setPending(false)
     }
   }
 
   const handleResend = async () => {
+    if (pending || verificationBusy.current || timing.resendSeconds > 0) return
+    verificationBusy.current = true
     clearFeedback()
+    setPendingAction('Sending new code...')
     setPending(true)
     try {
       if (mode === 'reset') {
         // Start a fresh reset challenge from the original account identifier.
         const nextChallenge = await requestPasswordReset(identifier.trim())
         setChallenge(nextChallenge)
+        setResendRetry(null)
         setCode('')
         setMessage(nextChallenge.message || 'A new verification code was sent.')
       } else {
         const nextChallenge = await resendVerificationCode(challenge.challengeId)
         setChallenge(nextChallenge)
+        setResendRetry(null)
         setCode('')
         setMessage(`A new code was sent to ${nextChallenge.maskedEmail}.`)
       }
     } catch (requestError) {
-      setError(requestError.message)
+      showRequestError(requestError, true)
     } finally {
+      verificationBusy.current = false
       setPending(false)
     }
   }
 
   const goToLogin = () => {
+    if (pending || verificationBusy.current) return
     clearFeedback()
     setFieldErrors({})
     setMode('login')
     setChallenge(null)
+    setResendRetry(null)
     setCode('')
   }
 
@@ -301,7 +348,7 @@ function LoginPage() {
                 Forgot password?
               </button>
               <AuthFeedback error={error} message={message} />
-              <SubmitButton pending={pending} label="Sign In" />
+              <SubmitButton pending={pending} pendingLabel={pendingAction} label="Sign In" />
               </form>
             )}
 
@@ -309,20 +356,23 @@ function LoginPage() {
               <form onSubmit={handleVerifyLogin} className="login-form" noValidate>
               <VerificationCodeInput
                 value={code}
-                onChange={(value) => {
-                  setCode(value)
-                  clearFieldError('code')
-                }}
+                onChange={handleLoginCodeChange}
+                disabled={pending}
+                focusRequest={focusRequest}
                 autoFocus
                 invalid={Boolean(error || fieldErrors.code)}
               />
               {fieldErrors.code && <small className="login-field-error">{fieldErrors.code}</small>}
+              {timing.expirationLabel && <p className="password-requirements">{timing.expirationLabel}</p>}
               <AuthFeedback error={error} message={message} />
-              <SubmitButton pending={pending} label="Verify and Continue" />
-              <button type="button" className="login-text-action login-text-action--center" onClick={handleResend} disabled={pending}>
-                Resend code
+              <p className="login-copy-subtitle" role="status">
+                {pending ? pendingAction : 'Your code verifies automatically when all six digits are entered.'}
+              </p>
+              <SubmitButton pending={pending} pendingLabel={pendingAction} label="Verify and Continue" />
+              <button type="button" className="login-text-action login-text-action--center" onClick={handleResend} disabled={pending || timing.resendSeconds > 0}>
+                {timing.resendLabel}
               </button>
-              <button type="button" className="login-text-action login-text-action--center" onClick={goToLogin}>
+              <button type="button" className="login-text-action login-text-action--center" onClick={goToLogin} disabled={pending}>
                 Use another account
               </button>
               </form>
@@ -350,7 +400,7 @@ function LoginPage() {
                 {fieldErrors.identifier && <small className="login-field-error">{fieldErrors.identifier}</small>}
               </label>
               <AuthFeedback error={error} message={message} />
-              <SubmitButton pending={pending} label="Send Reset Code" />
+              <SubmitButton pending={pending} pendingLabel={pendingAction} label="Send Reset Code" />
               <button type="button" className="login-text-action login-text-action--center" onClick={goToLogin}>
                 Back to sign in
               </button>
@@ -365,10 +415,13 @@ function LoginPage() {
                   setCode(value)
                   clearFieldError('code')
                 }}
+                focusRequest={focusRequest}
                 autoFocus
+                disabled={pending}
                 invalid={Boolean(fieldErrors.code)}
               />
               {fieldErrors.code && <small className="login-field-error">{fieldErrors.code}</small>}
+              {timing.expirationLabel && <p className="password-requirements">{timing.expirationLabel}</p>}
               <PasswordField
                 label="New Password"
                 value={newPassword}
@@ -395,9 +448,9 @@ function LoginPage() {
                 error={fieldErrors.confirmPassword}
               />
               <AuthFeedback error={error} message={message} />
-              <SubmitButton pending={pending} label="Reset Password" />
-              <button type="button" className="login-text-action login-text-action--center" onClick={handleResend} disabled={pending}>
-                Resend code
+              <SubmitButton pending={pending} pendingLabel={pendingAction} label="Reset Password" />
+              <button type="button" className="login-text-action login-text-action--center" onClick={handleResend} disabled={pending || timing.resendSeconds > 0}>
+                {timing.resendLabel}
               </button>
               <button type="button" className="login-text-action login-text-action--center" onClick={goToLogin}>
                 Cancel
@@ -448,10 +501,10 @@ function AuthFeedback({ error, message }) {
   )
 }
 
-function SubmitButton({ pending, label }) {
+function SubmitButton({ pending, label, pendingLabel = 'Please wait...' }) {
   return (
     <button type="submit" className="btn btn-lg w-100 login-submit-btn fs-6 rounded-3" disabled={pending}>
-      {pending ? 'Please wait...' : label}
+      {pending ? pendingLabel : label}
     </button>
   )
 }

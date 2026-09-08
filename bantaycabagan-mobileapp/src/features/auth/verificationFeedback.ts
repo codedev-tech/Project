@@ -1,0 +1,27 @@
+export type Timing = { serverTime?: string; receivedAt?: number; retryAt?: string; resendAvailableAt?: string; expiresAt?: string }
+export type VerificationError = Timing & { code?: string; message?: string }
+
+export const formatCountdown = (seconds: number) => `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, '0')}`
+
+export const deadlineRemaining = (deadline: string | undefined, timing: Timing | null | undefined, now = Date.now()) => {
+  const target = Date.parse(deadline || '')
+  if (!Number.isFinite(target)) return 0
+  const serverTime = Date.parse(timing?.serverTime || '')
+  const serverNow = Number.isFinite(serverTime) && Number.isFinite(timing?.receivedAt)
+    ? serverTime + Math.max(0, now - timing!.receivedAt!) : now
+  return Math.max(0, Math.ceil((target - serverNow) / 1000))
+}
+
+export const verificationFeedback = (error: VerificationError | null | undefined) => {
+  const code = error?.code
+  const incorrect = code === 'INCORRECT_OTP'
+    || (code === 'INVALID_OTP' && /incorrect/i.test(error?.message || ''))
+  if (incorrect) return { message: 'Incorrect code. Check your email and enter the code again.', clearCode: true }
+  if (code === 'EXPIRED_OTP') return { message: 'Code expired. Request a new code to continue.', clearCode: false }
+  if (code === 'INVALID_OTP') return { message: 'This code is no longer valid. Request a new code.', clearCode: false }
+  if (code === 'OTP_ATTEMPTS_EXCEEDED') return { message: 'Too many incorrect attempts. Request a new code to continue.', clearCode: false }
+  if (code === 'NETWORK_ERROR' || code === 'REQUEST_TIMEOUT') {
+    return { message: 'Connection problem. Check your connection and try again. Any code you entered has been kept.', clearCode: false }
+  }
+  return { message: error?.message || 'Unable to complete the request. Please try again.', clearCode: false }
+}

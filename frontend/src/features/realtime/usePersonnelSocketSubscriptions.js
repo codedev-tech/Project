@@ -94,6 +94,11 @@ export const usePersonnelSocketSubscriptions = ({
       })
     }
 
+    const onConnectError = () => {
+      setIsConnected(false)
+      setStatusMessage('Live updates are unavailable. Displayed data may be outdated. Reconnecting automatically.')
+    }
+
     const onBootstrap = (payload) => {
       if (!Array.isArray(payload)) return
       const normalized = payload.map(normalizeAndTagPersonnel)
@@ -286,6 +291,7 @@ export const usePersonnelSocketSubscriptions = ({
 
     socket.on('connect', onConnect)
     socket.on('disconnect', onDisconnect)
+    socket.on('connect_error', onConnectError)
     socket.on('personnel:bootstrap', onBootstrap)
     socket.on('personnel:update', onUpdate)
     socket.on('personnel:identity-updated', onPersonnelIdentityUpdated)
@@ -327,6 +333,7 @@ export const usePersonnelSocketSubscriptions = ({
       isCurrent = false
       socket.off('connect', onConnect)
       socket.off('disconnect', onDisconnect)
+      socket.off('connect_error', onConnectError)
       socket.off('personnel:bootstrap', onBootstrap)
       socket.off('personnel:update', onUpdate)
       socket.off('personnel:identity-updated', onPersonnelIdentityUpdated)

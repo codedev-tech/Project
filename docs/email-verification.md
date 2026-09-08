@@ -62,6 +62,18 @@ changing environment variables.
 
 ## Security Rules
 
+The login code verifies automatically once six digits are entered on web and
+mobile. The visible **Verify and Continue** button remains available for manual
+retry. Incorrect codes are cleared and the input regains focus; connection
+failures preserve the entered code.
+
+The login and recovery screens display code expiration from `expiresAt` and a
+resend countdown from `resendAvailableAt` or a rate-limit error's `retryAt`.
+`serverTime` accounts for device clock differences. There is no additional
+fixed resend cooldown: the existing three-requests-per-15-minutes allowance
+determines when the countdown appears. These timing fields require the updated
+backend; older responses still support verification without a resend countdown.
+
 - OTPs expire after 10 minutes.
 - Only a hash of each OTP is stored.
 - A challenge permits five attempts.

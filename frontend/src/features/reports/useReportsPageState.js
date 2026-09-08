@@ -1,3 +1,4 @@
+import { requestErrorMessage } from '../../utils/requestFeedback'
 import { useCallback, useEffect, useState } from 'react'
 import { useDebouncedValue } from '../../hooks/useDebouncedValue'
 import { useCachedPageData } from '../../hooks/useCachedPageData'
@@ -47,7 +48,7 @@ export function useReportsPageState({ refreshReports, reportsRevision, showFeedb
       if (!isCurrent || error?.name === 'AbortError') return
       setRequestOutcome({
         requestKey,
-        error: error.message || 'Reports could not be loaded.',
+        error: requestErrorMessage(error, { action: 'load reports' }),
       })
     })
     return () => {
@@ -78,7 +79,7 @@ export function useReportsPageState({ refreshReports, reportsRevision, showFeedb
       showFeedback(`Report marked ${validationStatus}. Analytics has been updated.`, { type: 'success' })
     } catch (error) {
       setReviewState({ isSaving: false, error: '', message: '' })
-      showFeedback(error.message, { type: 'error', title: 'Report update failed' })
+      showFeedback(requestErrorMessage(error, { action: 'update the report review', write: true }), { type: 'error', title: 'Report update needs attention' })
     }
   }, [refreshReports, reviewState.isSaving, selectedReport, showFeedback])
   const handleDownloadReport = useCallback((report) => {

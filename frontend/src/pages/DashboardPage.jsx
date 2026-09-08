@@ -1,3 +1,4 @@
+import { requestErrorMessage } from '../utils/requestFeedback'
 import { useEffect, useMemo, useState } from 'react'
 import { useFeedback } from '../context/useFeedback'
 import { DashboardContentSkeleton } from '../components/LoadingSkeleton'
@@ -48,8 +49,8 @@ function DashboardPage() {
         .catch((error) => {
           if (!active || request !== latestRequest) return
           setLoadMessage('')
-          setLoadError(error.message || 'Unable to load the dashboard summary.')
-          showFeedback(error.message || 'Unable to load the dashboard summary.', {
+          setLoadError(requestErrorMessage(error, { action: 'load the dashboard summary' }))
+          showFeedback(requestErrorMessage(error, { action: 'load the dashboard summary' }), {
             type: 'error',
             title: 'Dashboard unavailable',
           })

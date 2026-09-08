@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Image,
@@ -15,6 +15,8 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialIcons as Icon } from '@expo/vector-icons';
 import VerificationCodeInput from './components/VerificationCodeInput';
+import { verificationFeedback, type VerificationError } from './features/auth/verificationFeedback';
+import { useVerificationTiming } from './features/auth/useVerificationTiming';
 import { COMPLETE_CODE_MESSAGE, PASSWORD_REQUIREMENTS } from './features/auth/authCopy';
 import { mobileTheme } from './constants/mobileTheme';
 import { useAuth } from './context/AuthContext';
@@ -55,6 +57,11 @@ export default function LoginScreen() {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [challenge, setChallenge] = useState<VerificationChallenge | null>(null);
   const [pending, setPending] = useState(false);
+  const [pendingAction, setPendingAction] = useState('');
+  const [resendRetry, setResendRetry] = useState<VerificationError | null>(null);
+  const [focusRequest, setFocusRequest] = useState(0);
+  const timing = useVerificationTiming(challenge, resendRetry);
+  const requestBusy = useRef(false);
   const [error, setError] = useState('');
   const [message, setMessage] = useState('');
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
@@ -68,15 +75,26 @@ export default function LoginScreen() {
     });
   };
 
-  const run = async (operation: () => Promise<void>) => {
+  const run = async (operation: () => Promise<void>, action: string) => {
+    if (requestBusy.current) return;
+    requestBusy.current = true;
+    setPendingAction(action);
     setPending(true);
     setError('');
     setMessage('');
     try {
       await operation();
     } catch (requestError) {
-      setError(requestError instanceof Error ? requestError.message : 'Unable to complete the request.');
+      const authError = requestError instanceof Error ? requestError as VerificationError : undefined;
+      const feedback = verificationFeedback(authError);
+      setError(feedback.message);
+      if (feedback.clearCode) {
+        setCode('');
+        setFocusRequest((value) => value + 1);
+      }
+      if (action.startsWith('Sending') && authError?.retryAt) setResendRetry(authError);
     } finally {
+      requestBusy.current = false;
       setPending(false);
     }
   };
@@ -93,17 +111,18 @@ export default function LoginScreen() {
     return run(async () => {
       const response = await beginLogin(loginId.trim(), password);
       setChallenge(response);
+      setResendRetry(null);
       setCode('');
       setMode('verify');
-    });
+    }, 'Sending verification code...');
   };
 
-  const submitVerification = () => run(async () => {
+  const submitVerification = (nextCode = code) => run(async () => {
     if (!challenge) return;
-    if (code.length !== 6) throw new Error(COMPLETE_CODE_MESSAGE);
-    const session = await verifyLoginCode(challenge.challengeId, code);
+    if (nextCode.length !== 6) throw new Error(COMPLETE_CODE_MESSAGE);
+    const session = await verifyLoginCode(challenge.challengeId, nextCode);
     await establishSession(session);
-  });
+  }, 'Verifying code...');
 
   const submitForgot = () => {
     setError('');
@@ -116,6 +135,7 @@ export default function LoginScreen() {
         const response = await requestPasswordReset(identifier.trim());
         if (response.challengeId) {
           setChallenge(response);
+          setResendRetry(null);
           setCode('');
           setMode('reset');
           return;
@@ -132,7 +152,7 @@ export default function LoginScreen() {
         }
         throw requestError;
       }
-    });
+    }, 'Sending reset code...');
   };
 
   const submitReset = () => run(async () => {
@@ -153,27 +173,31 @@ export default function LoginScreen() {
     setNewPassword('');
     setConfirmPassword('');
     setMessage('Password updated. Sign in with your new password.');
-  });
+  }, 'Resetting password...');
 
-  const resend = () => run(async () => {
+  const resend = () => timing.resendSeconds > 0 ? undefined : run(async () => {
     if (mode === 'reset') {
       // Start a fresh reset challenge from the original account identifier.
       const response = await requestPasswordReset(identifier.trim());
       setChallenge(response);
+      setResendRetry(null);
       setCode('');
       setMessage(response.message || 'A new verification code was sent.');
     } else {
       if (!challenge) return;
       const response = await resendVerificationCode(challenge.challengeId);
       setChallenge(response);
+      setResendRetry(null);
       setCode('');
       setMessage(`A new code was sent to ${response.maskedEmail}.`);
     }
-  });
+  }, 'Sending new code...');
 
   const backToLogin = () => {
+    if (requestBusy.current) return;
     setMode('login');
     setChallenge(null);
+    setResendRetry(null);
     setCode('');
     setError('');
     setMessage('');
@@ -181,8 +205,13 @@ export default function LoginScreen() {
   };
 
   const handleVerificationCodeChange = (nextCode: string) => {
+    if (requestBusy.current || nextCode === code) return;
     setCode(nextCode);
     if (error) setError('');
+    if (mode === 'verify') {
+      setMessage('');
+      if (nextCode.length === 6) void submitVerification(nextCode);
+    }
   };
 
   const copy = {
@@ -265,7 +294,7 @@ export default function LoginScreen() {
                   <Text style={styles.textAction}>Forgot password?</Text>
                 </TouchableOpacity>
                 <Feedback error={error} message={message} />
-                <SubmitButton label="Sign In" pending={pending} onPress={submitLogin} />
+                <SubmitButton label="Sign In" pending={pending} pendingLabel={pendingAction} onPress={submitLogin} />
               </>
             )}
 
@@ -274,13 +303,19 @@ export default function LoginScreen() {
                 <VerificationCodeInput
                   value={code}
                   onChangeText={handleVerificationCodeChange}
+                  disabled={pending}
+                  focusRequest={focusRequest}
                   dark
                   invalid={Boolean(error)}
                 />
+                {timing.expirationLabel ? <Text style={styles.passwordRequirements}>{timing.expirationLabel}</Text> : null}
                 <Feedback error={error} message={message} />
-                <SubmitButton label="Verify and Continue" pending={pending} onPress={submitVerification} />
-                <TextButton label="Resend code" onPress={resend} disabled={pending} />
-                <TextButton label="Use another account" onPress={backToLogin} />
+                <Text style={styles.subtitle} accessibilityLiveRegion="polite">
+                  {pending ? pendingAction : 'Your code verifies automatically when all six digits are entered.'}
+                </Text>
+                <SubmitButton label="Verify and Continue" pending={pending} pendingLabel={pendingAction} onPress={() => { void submitVerification(); }} />
+                <TextButton label={timing.resendLabel} onPress={resend} disabled={pending || timing.resendSeconds > 0} />
+                <TextButton label="Use another account" onPress={backToLogin} disabled={pending} />
               </>
             )}
 
@@ -301,14 +336,15 @@ export default function LoginScreen() {
                   error={fieldErrors.identifier}
                 />
                 <Feedback error={error} message={message} />
-                <SubmitButton label="Send Reset Code" pending={pending} onPress={submitForgot} />
+                <SubmitButton label="Send Reset Code" pending={pending} pendingLabel={pendingAction} onPress={submitForgot} />
                 <TextButton label="Back to sign in" onPress={backToLogin} />
               </>
             )}
 
             {mode === 'reset' && (
               <>
-                <VerificationCodeInput value={code} onChangeText={handleVerificationCodeChange} dark />
+                <VerificationCodeInput value={code} onChangeText={handleVerificationCodeChange} disabled={pending} focusRequest={focusRequest} dark />
+                {timing.expirationLabel ? <Text style={styles.passwordRequirements}>{timing.expirationLabel}</Text> : null}
                 <Field
                   label="New Password"
                   value={newPassword}
@@ -327,8 +363,8 @@ export default function LoginScreen() {
                   maxLength={128}
                 />
                 <Feedback error={error} message={message} />
-                <SubmitButton label="Reset Password" pending={pending} onPress={submitReset} />
-                <TextButton label="Resend code" onPress={resend} disabled={pending} />
+                <SubmitButton label="Reset Password" pending={pending} pendingLabel={pendingAction} onPress={submitReset} />
+                <TextButton label={timing.resendLabel} onPress={resend} disabled={pending || timing.resendSeconds > 0} />
                 <TextButton label="Cancel" onPress={backToLogin} />
               </>
             )}
@@ -387,12 +423,14 @@ function Field({
 }
 
 function SubmitButton({
+  pendingLabel = 'Please wait...',
   label,
   pending,
   onPress,
 }: {
   label: string;
   pending: boolean;
+  pendingLabel?: string;
   onPress: () => void;
 }) {
   return (
@@ -402,7 +440,7 @@ function SubmitButton({
       disabled={pending}
     >
       {pending
-        ? <ActivityIndicator color="#ffffff" />
+        ? <><ActivityIndicator color="#ffffff" /><Text style={styles.submitText} accessibilityLiveRegion="polite">{pendingLabel}</Text></>
         : <Text style={styles.submitText}>{label}</Text>}
     </TouchableOpacity>
   );

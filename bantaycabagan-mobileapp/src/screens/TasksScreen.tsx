@@ -1,3 +1,4 @@
+import { requestErrorMessage } from '../utils/requestFeedback';
 import React, {
   useCallback,
   useEffect,
@@ -63,6 +64,7 @@ export default function TasksScreen({
     refreshTaskHistory,
     loadMoreTaskHistory,
   } = useOperationalContext();
+  const [historyError, setHistoryError] = useState('');
   const [filter, setFilter] = useState<(typeof filters)[number]>('Open');
   const filterTranslateX = useSharedValue(0);
   const pendingFilterDirection = useRef(0);
@@ -103,10 +105,14 @@ export default function TasksScreen({
     filterTranslateX.value = withTiming(0, { duration: 140 });
   }, [filter, filterTranslateX]);
 
+  const reloadHistory = useCallback(async () => {
+    setHistoryError('');
+    try { await refreshTaskHistory(); }
+    catch (error) { setHistoryError(requestErrorMessage(error, { action: 'load task history' })); }
+  }, [refreshTaskHistory]);
   useEffect(() => {
-    if (filter !== 'History') return;
-    refreshTaskHistory().catch(() => undefined);
-  }, [filter, refreshTaskHistory]);
+    if (filter === 'History') void reloadHistory();
+  }, [filter, reloadHistory]);
 
   const filteredTasks = useMemo(() => tasks.filter((task) => {
     const active = task.status === 'open' || task.status === 'full';
@@ -129,7 +135,7 @@ export default function TasksScreen({
     try {
       await acceptTask(task.id);
     } catch (error) {
-      Alert.alert('Unable to accept task', (error as Error).message);
+      Alert.alert('Unable to accept task', requestErrorMessage(error, { action: 'accept the task', write: true }));
     } finally {
       setAcceptingId(null);
     }
@@ -149,7 +155,7 @@ export default function TasksScreen({
             try {
               await cancelBackupRequest(task.id);
             } catch (error) {
-              Alert.alert('Unable to cancel backup', (error as Error).message);
+              Alert.alert('Unable to cancel backup', requestErrorMessage(error, { action: 'cancel the backup request', write: true }));
             } finally {
               setCancellingId(null);
             }
@@ -269,6 +275,14 @@ export default function TasksScreen({
                 </View>
                 <Icon name="event" size={22} color={mobileTheme.blue} />
               </View>
+              {filter === 'History' && historyError ? (
+                <View>
+                  <Text accessibilityRole="alert" style={{ color: mobileTheme.danger }}>{historyError}</Text>
+                  <TouchableOpacity onPress={() => { void reloadHistory(); }} disabled={isTaskHistoryLoading}>
+                    <Text style={styles.loadMoreText}>Try again</Text>
+                  </TouchableOpacity>
+                </View>
+              ) : null}
               <UpcomingShiftCard
                 expanded={upcomingExpanded}
                 isLoading={isLoading}
@@ -280,7 +294,7 @@ export default function TasksScreen({
           ListFooterComponent={filter === 'History' && taskHistoryHasMore ? (
             <TouchableOpacity
               style={[styles.loadMoreButton, isDark && darkStyles.surfaceMuted]}
-              onPress={() => loadMoreTaskHistory().catch(() => undefined)}
+              onPress={() => { setHistoryError(''); void loadMoreTaskHistory().catch((error) => setHistoryError(requestErrorMessage(error, { action: 'load earlier tasks' }))); }}
               disabled={isTaskHistoryLoadingMore}
             >
               {isTaskHistoryLoadingMore ? (

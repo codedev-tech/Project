@@ -1,12 +1,15 @@
 import { API_URL } from './runtime'
 
 export class ApiError extends Error {
-  constructor(message, { code, field, status } = {}) {
+  constructor(message, { code, field, status, retryAt, serverTime } = {}) {
     super(message)
     this.name = 'ApiError'
     this.code = code
     this.field = field
     this.status = status
+    this.retryAt = retryAt
+    this.serverTime = serverTime
+    this.receivedAt = Date.now()
   }
 }
 
@@ -60,6 +63,7 @@ export const apiRequest = async (path, options = {}) => {
     if (!response.ok) {
       throw new ApiError(payload.message || errorMessage, {
         code: payload.code, field: payload.field, status: response.status,
+        retryAt: payload.retryAt, serverTime: payload.serverTime,
       })
     }
     return payload

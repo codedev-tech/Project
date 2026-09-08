@@ -1,3 +1,4 @@
+import { requestErrorMessage } from '../utils/requestFeedback';
 import React, {
   createContext,
   useCallback,
@@ -7,7 +8,7 @@ import React, {
   useRef,
   useState,
 } from 'react';
-import { Platform } from 'react-native';
+import { Alert, Platform } from 'react-native';
 import Constants, { ExecutionEnvironment } from 'expo-constants';
 import * as Device from 'expo-device';
 import * as Notifications from 'expo-notifications';
@@ -93,6 +94,13 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
   const [unreadCount, setUnreadCount] = useState(0);
   const [navigationRequest, setNavigationRequest] = useState<NotificationNavigationRequest | null>(null);
   const requestIdRef = useRef(0);
+  const actionBusy = useRef(false);
+  const sessionGeneration = useRef(0);
+  useEffect(() => {
+    sessionGeneration.current += 1;
+    actionBusy.current = false;
+    return () => { sessionGeneration.current += 1; requestIdRef.current += 1; };
+  }, [token]);
 
   const refreshNotifications = useCallback(async () => {
     if (!token) {
@@ -114,15 +122,33 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
       setUnreadCount(payload.unreadCount);
     } catch (error) {
       if (requestId === requestIdRef.current) {
-        setNotificationsError(error instanceof Error
-          ? error.message
-          : 'Unable to load notifications. Check your connection and try again.');
+        setNotificationsError(requestErrorMessage(error, { action: 'load notifications' }));
       }
       throw error;
     } finally {
       if (requestId === requestIdRef.current) setIsLoading(false);
     }
   }, [token]);
+
+  const updateReadState = useCallback(async (notificationId?: string) => {
+    if (!token || actionBusy.current) return;
+    const generation = sessionGeneration.current;
+    actionBusy.current = true;
+    setNotificationsError('');
+    try {
+      if (notificationId) await markMyNotificationRead(notificationId, token);
+      else await markAllMyNotificationsRead(token);
+      // Reconcile the server count, including alerts received during the request.
+      if (generation === sessionGeneration.current) await refreshNotifications();
+    } catch (error) {
+      if (generation !== sessionGeneration.current) return;
+      const message = requestErrorMessage(error, { action: 'update notification read status', write: true });
+      setNotificationsError(message);
+      Alert.alert('Notification update needs attention', message);
+    } finally {
+      if (generation === sessionGeneration.current) actionBusy.current = false;
+    }
+  }, [refreshNotifications, token]);
 
   const loadMoreNotifications = useCallback(async () => {
     if (!token || !notificationCursor || isLoadingMore) return;
@@ -135,9 +161,7 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
       setNotificationsHasMore(payload.pagination.hasNextPage);
       setUnreadCount(payload.unreadCount);
     } catch (error) {
-      setNotificationsError(error instanceof Error
-        ? error.message
-        : 'Unable to load previous notifications. Check your connection and try again.');
+      setNotificationsError(requestErrorMessage(error, { action: 'load previous notifications' }));
       throw error;
     } finally {
       setIsLoadingMore(false);
@@ -172,13 +196,7 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
         referenceId?: string;
         notificationId?: string;
       };
-      if (data.notificationId && token) {
-        setNotifications((items) => items.map((item) => (
-          item.id === data.notificationId ? { ...item, isRead: true } : item
-        )));
-        setUnreadCount((count) => Math.max(0, count - 1));
-        markMyNotificationRead(data.notificationId, token).catch(() => undefined);
-      }
+      if (data.notificationId && token) void updateReadState(data.notificationId);
       setNavigationRequest({
         destination: data.destination || 'Map',
         referenceId: data.referenceId,
@@ -199,7 +217,7 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
       receivedSubscription.remove();
       responseSubscription.remove();
     };
-  }, [refreshNotifications, token]);
+  }, [refreshNotifications, token, updateReadState]);
 
   useEffect(() => {
     if (!token || Platform.OS === 'web') return undefined;
@@ -257,26 +275,15 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
   }, [unreadCount]);
 
   const openNotification = useCallback((notification: OfficerNotification) => {
-    setNotifications((items) => items.map((item) => (
-      item.id === notification.id ? { ...item, isRead: true } : item
-    )));
-    if (token && !notification.isRead) {
-      setUnreadCount((count) => Math.max(0, count - 1));
-      markMyNotificationRead(notification.id, token).catch(() => undefined);
-    }
+    if (!notification.isRead) void updateReadState(notification.id);
     setNavigationRequest({
       destination: destinationFor(notification),
       referenceId: notification.referenceId,
       requestId: Date.now(),
     });
-  }, [token]);
+  }, [updateReadState]);
 
-  const markAllRead = useCallback(async () => {
-    if (!token) return;
-    setNotifications((items) => items.map((item) => ({ ...item, isRead: true })));
-    setUnreadCount(0);
-    await markAllMyNotificationsRead(token);
-  }, [token]);
+  const markAllRead = useCallback(() => updateReadState(), [updateReadState]);
 
   const value = useMemo(() => ({
     notifications,

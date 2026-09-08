@@ -9,6 +9,8 @@ import type {
 } from '../types/operations';
 import { API_URL } from './apiConfig';
 import { requestJson, TransportError } from './requestJson';
+import { ApiRequestError } from './ApiRequestError';
+export { ApiRequestError } from './ApiRequestError';
 
 export { API_URL } from './apiConfig';
 
@@ -40,21 +42,14 @@ const request = async <T>(
       },
     }, timeoutMs);
     if (!response.ok) {
-      throw new ApiRequestError(body.message || 'Unable to complete the request.', response.status);
+      throw new ApiRequestError(body.message || 'Unable to complete the request.', response.status, body.code, body.field);
     }
     return body;
   } catch (error) {
-    if (error instanceof TransportError) throw new ApiRequestError(error.message, error.status);
+    if (error instanceof TransportError) throw new ApiRequestError(error.message, error.status, error.status === 408 ? 'REQUEST_TIMEOUT' : error.status === 0 ? 'NETWORK_ERROR' : 'INVALID_RESPONSE');
     throw error;
   }
 };
-
-export class ApiRequestError extends Error {
-  constructor(message: string, public readonly status: number) {
-    super(message);
-    this.name = 'ApiRequestError';
-  }
-}
 
 export type CursorPagination = {
   limit: number;

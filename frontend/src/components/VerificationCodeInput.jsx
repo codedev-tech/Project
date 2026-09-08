@@ -1,14 +1,22 @@
-import { useRef } from 'react'
+import { useEffect, useRef } from 'react'
 
 const CODE_LENGTH = 6
 
-function VerificationCodeInput({ value, onChange, autoFocus = false, invalid = false }) {
+function VerificationCodeInput({ value, onChange, autoFocus = false, invalid = false, disabled = false, focusRequest = 0 }) {
   const inputRefs = useRef([])
+  const focusedRequest = useRef(0)
+  useEffect(() => {
+    if (!disabled && focusRequest !== focusedRequest.current) {
+      focusedRequest.current = focusRequest
+      inputRefs.current[0]?.focus()
+    }
+  }, [disabled, focusRequest])
   const digits = String(value || '').padEnd(CODE_LENGTH, ' ').slice(0, CODE_LENGTH).split('')
 
   const setCode = (nextValue, focusIndex) => {
+    if (disabled) return
     onChange(nextValue.replace(/\D/g, '').slice(0, CODE_LENGTH))
-    if (Number.isInteger(focusIndex)) {
+    if (Number.isInteger(focusIndex) && nextValue.length < CODE_LENGTH) {
       requestAnimationFrame(() => inputRefs.current[focusIndex]?.focus())
     }
   }
@@ -50,7 +58,7 @@ function VerificationCodeInput({ value, onChange, autoFocus = false, invalid = f
   }
 
   return (
-    <fieldset className="verification-code-field">
+    <fieldset className="verification-code-field" disabled={disabled}>
       <legend className="login-label">Verification Code</legend>
       <div
         className={`verification-code-inputs ${invalid ? 'verification-code-inputs--invalid' : ''}`}

@@ -1,3 +1,4 @@
+import { requestErrorMessage } from '../utils/requestFeedback'
 import { lazy, Suspense, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { CheckCircle2, Download, Maximize2, Route, X, XCircle } from 'lucide-react'
@@ -108,7 +109,7 @@ function ReportDetailDrawer({
         ...emptyRouteState,
         reportId: report.id,
         status: 'error',
-        message: error.message,
+        message: requestErrorMessage(error, { action: 'load the GPS route for this report' }),
       })
     }
   }

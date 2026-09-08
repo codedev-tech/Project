@@ -27,6 +27,7 @@ const errorHandler = (error, _req, res, _next) => {
 
 	return res.status(status).json({
 		success: false,
+		...(error.retryAt ? { retryAt: error.retryAt, serverTime: new Date().toISOString() } : {}),
 		code: error.code || 'INTERNAL_SERVER_ERROR',
 		...(error.field ? { field: error.field } : {}),
 		message: exposeMessage

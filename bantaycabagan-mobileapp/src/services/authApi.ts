@@ -26,6 +26,9 @@ export type VerificationChallenge = {
   maskedEmail: string;
   expiresAt: string;
   message?: string;
+  serverTime?: string;
+  resendAvailableAt?: string;
+  receivedAt?: number;
 };
 
 export type AuthSession = {
@@ -41,8 +44,9 @@ type RequestOptions = RequestInit & {
 export class AuthApiError extends Error {
   status: number;
   code: string;
+  receivedAt = Date.now();
 
-  constructor(message: string, status: number, code = '') {
+  constructor(message: string, status: number, code = '', public retryAt?: string, public serverTime?: string) {
     super(message);
     this.name = 'AuthApiError';
     this.status = status;
@@ -62,11 +66,11 @@ const request = async <T>(path: string, options: RequestOptions = {}): Promise<T
       },
     });
     if (!response.ok) {
-      throw new AuthApiError(payload.message || 'Unable to complete the request.', response.status, payload.code || '');
+      throw new AuthApiError(payload.message || 'Unable to complete the request.', response.status, payload.code || '', payload.retryAt, payload.serverTime);
     }
-    return payload as T;
+    return (payload.challengeId ? { ...payload, receivedAt: Date.now() } : payload) as T;
   } catch (error) {
-    if (error instanceof TransportError) throw new AuthApiError(error.message, error.status);
+    if (error instanceof TransportError) throw new AuthApiError(error.message, error.status, error.status === 408 ? 'REQUEST_TIMEOUT' : error.status === 0 ? 'NETWORK_ERROR' : 'INVALID_RESPONSE');
     throw error;
   }
 };
