@@ -70,6 +70,7 @@ const createOperationalRoutes = ({ authService, controller }) => {
 		asyncHandler(controller.getReportRoute),
 	)
 	router.get('/reports/:reportId', ...authenticatedOperationalRead, asyncHandler(controller.getReport))
+	router.patch('/reports/:reportId', ...authenticatedOfficerOnly, asyncHandler(controller.editReport))
 	router.patch(
 		'/reports/:reportId/resolve',
 		...authenticatedOfficerOnly,

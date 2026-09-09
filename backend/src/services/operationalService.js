@@ -62,6 +62,7 @@ const createOperationalService = ({ io }) => {
 	})
 	const {
 		getReport,
+		editReport,
 		getReportByClientSubmissionId,
 		listReports,
 		loadReports,
@@ -106,6 +107,7 @@ const createOperationalService = ({ io }) => {
 		getDeployment,
 		getUpcomingDeployment,
 		getReport,
+		editReport,
 		getReportByClientSubmissionId,
 		getReportRoute,
 		getTask,

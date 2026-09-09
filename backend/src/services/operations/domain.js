@@ -79,6 +79,13 @@ const serializeReport = (report, personnelById = new Map()) => ({
 	is_incident: report.isIncident,
 	severity: report.severity,
 	validation_status: report.validationStatus,
+	revision: report.__v || 0,
+	reviewed_at: report.reviewedAt?.toISOString(),
+	reviewed_by: report.reviewedBy,
+	history: (report.history || []).map((entry) => ({
+		at: entry.at?.toISOString(), by: entry.by, name: entry.name,
+		reason: entry.reason, kind: entry.kind, changes: entry.changes,
+	})),
 	case_status: report.caseStatus,
 	title: report.title,
 	description: report.description,

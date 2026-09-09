@@ -72,7 +72,7 @@ export function useReportsPageState({ refreshReports, reportsRevision, showFeedb
     if (!selectedReport || reviewState.isSaving) return
     setReviewState({ isSaving: true, error: '', message: '' })
     try {
-      await updateReportValidation(selectedReport.id, validationStatus)
+      await updateReportValidation(selectedReport.id, validationStatus, selectedReport.revision || 0)
       await refreshReports()
       setRefreshVersion((version) => version + 1)
       setReviewState({ isSaving: false, error: '', message: '' })

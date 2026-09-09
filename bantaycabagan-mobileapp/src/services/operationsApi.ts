@@ -218,6 +218,14 @@ export const submitPoliceReport = (
   }, token);
 };
 
+export const fetchPoliceReport = (reportId: string, token?: string | null) =>
+  request<{ report: PoliceReport }>(`/api/reports/${encodeURIComponent(reportId)}`, undefined, token);
+
+export const editPoliceReport = (reportId: string, input: Omit<SubmitReportInput, 'assigned_area' | 'evidence_photo' | 'latitude' | 'longitude' | 'client_submission_id'> & { latitude: number | null; longitude: number | null; revision: number; reason: string }, token?: string | null) =>
+  request<{ report: PoliceReport }>(`/api/reports/${encodeURIComponent(reportId)}`, {
+    method: 'PATCH', body: JSON.stringify(input),
+  }, token);
+
 export const resolveIncidentReport = (
   reportId: string,
   resolutionNotes: string,

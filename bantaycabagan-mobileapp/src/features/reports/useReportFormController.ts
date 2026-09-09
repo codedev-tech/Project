@@ -1,8 +1,9 @@
 import { requestErrorMessage } from '../../utils/requestFeedback';
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { Alert } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import { isCabaganBarangay } from '../../constants/cabaganBarangays';
+import { isInsideCabagan } from '../../constants/cabaganGeofence';
 import type {
   DeploymentAssignment,
   LivePersonnel,
@@ -12,6 +13,7 @@ import type {
 } from '../../types/operations';
 import { discardTemporaryEvidence } from '../../services/offlineReportQueue';
 import { selectPersonnelDeployment } from '../operations/operationalState';
+import type { editPoliceReport } from '../../services/operationsApi';
 import {
   createEmptyReportForm,
   getBarangayFromArea,
@@ -26,6 +28,7 @@ type Options = {
   personnel: LivePersonnel[];
   resolveReport: (reportId: string, resolutionNotes: string) => Promise<void>;
   submitReport: (input: SubmitReportInput) => Promise<'submitted' | 'queued'>;
+  editReport?: (reportId: string, input: Parameters<typeof editPoliceReport>[1]) => Promise<PoliceReport>;
 };
 
 export function useReportFormController({
@@ -34,18 +37,23 @@ export function useReportFormController({
   personnel,
   resolveReport,
   submitReport,
+  editReport,
 }: Options) {
   const [formVisible, setFormVisible] = useState(false);
   const [form, setForm] = useState(createEmptyReportForm);
   const [barangayPickerVisible, setBarangayPickerVisible] = useState(false);
   const [locationPickerVisible, setLocationPickerVisible] = useState(false);
-  const [selectedReport, setSelectedReport] = useState<PoliceReport | null>(null);
+  const [editTarget, setEditTarget] = useState<PoliceReport | null>(null);
+  const [editReason, setEditReason] = useState('');
+  const savingRef = useRef(false);
   const [resolveTarget, setResolveTarget] = useState<PoliceReport | null>(null);
   const [resolutionNotes, setResolutionNotes] = useState('');
   const [isSaving, setIsSaving] = useState(false);
   const [evidencePhoto, setEvidencePhoto] = useState<ReportEvidenceInput | null>(null);
 
   const openSubmitForm = () => {
+    setEditTarget(null);
+    setEditReason('');
     const assignedArea = selectPersonnelDeployment(deployments, currentPersonnelId)?.patrolArea || '';
     setForm({
       ...createEmptyReportForm(),
@@ -54,6 +62,18 @@ export function useReportFormController({
       barangay: getBarangayFromArea(assignedArea),
     });
     setEvidencePhoto(null);
+    setFormVisible(true);
+  };
+
+  const openEditForm = (report: PoliceReport) => {
+    setEditTarget(report);
+    setEditReason('');
+    setEvidencePhoto(null);
+    setForm({ report_type: report.report_type, title: report.title, description: report.description,
+      location: report.location, barangay: report.barangay, severity: report.severity,
+      occurred_at: report.occurred_at, assigned_area: report.assigned_area,
+      location_source: report.location_source || 'manual',
+      latitude: report.latitude ?? undefined, longitude: report.longitude ?? undefined });
     setFormVisible(true);
   };
 
@@ -115,9 +135,6 @@ export function useReportFormController({
     setForm((current) => ({
       ...current,
       barangay,
-      location_source: 'manual',
-      latitude: undefined,
-      longitude: undefined,
     }));
   };
 
@@ -126,8 +143,6 @@ export function useReportFormController({
       ...current,
       location,
       location_source: 'manual',
-      latitude: current.location_source === 'gps' ? undefined : current.latitude,
-      longitude: current.location_source === 'gps' ? undefined : current.longitude,
     }));
   };
 
@@ -145,8 +160,11 @@ export function useReportFormController({
     const liveOfficer = personnel.find((member) => member.id === currentPersonnelId);
     const latitude = liveOfficer?.latitude;
     const longitude = liveOfficer?.longitude;
+    const readingAge = Date.now() - new Date(liveOfficer?.locationRecordedAt || '').getTime();
+    const staleAfter = (liveOfficer?.locationStaleAfterSeconds || 120) * 1000;
     const hasCurrentCoordinates = liveOfficer?.locationStatus === 'current'
       && liveOfficer.isLocationStale !== true
+      && Number.isFinite(readingAge) && readingAge >= -300_000 && readingAge <= staleAfter
       && typeof latitude === 'number'
       && Number.isFinite(latitude)
       && typeof longitude === 'number'
@@ -158,14 +176,14 @@ export function useReportFormController({
       );
       return;
     }
-    const detectedBarangay = getBarangayFromArea(liveOfficer.locationName);
-    if (!detectedBarangay) {
+    if (!isInsideCabagan(latitude!, longitude!)) {
       Alert.alert(
         'Current GPS is outside Cabagan',
         'The current position cannot be used as the incident barangay. Select the actual Cabagan barangay and enter the place manually.',
       );
       return;
     }
+    const detectedBarangay = getBarangayFromArea(liveOfficer.locationName);
     setForm((current) => ({
       ...current,
       barangay: detectedBarangay,
@@ -174,9 +192,14 @@ export function useReportFormController({
       latitude,
       longitude,
     }));
+    if (!detectedBarangay) {
+      setBarangayPickerVisible(true);
+      Alert.alert('Select the incident barangay', 'GPS coordinates were added. The barangay could not be identified; select it and check the exact place or landmark.');
+    }
   };
 
   const handleSubmit = async (close: SheetClose) => {
+    if (savingRef.current) return;
     if (
       !form.title.trim()
       || !form.description.trim()
@@ -186,8 +209,26 @@ export function useReportFormController({
       Alert.alert('Complete the report', 'Title, description, location, and barangay are required.');
       return;
     }
+    if (!Number.isFinite(new Date(form.occurred_at).getTime()) || new Date(form.occurred_at).getTime() > Date.now() + 300000) {
+      Alert.alert('Check the date and time', 'Enter a valid incident/activity date and time that is not in the future.');
+      return;
+    }
+    if (editTarget && !editReason.trim()) {
+      Alert.alert('Correction reason required', 'Explain what needs to be corrected.');
+      return;
+    }
+    savingRef.current = true;
     setIsSaving(true);
     try {
+      if (editTarget) {
+        if (!editReport) throw new Error('Report corrections are unavailable. Reopen the app and try again.');
+        const { assigned_area: _area, evidence_photo: _evidence, ...content } = form;
+        await editReport(editTarget.id, { ...content,
+          latitude: form.latitude ?? null, longitude: form.longitude ?? null,
+          reason: editReason.trim(), revision: editTarget.revision || 0 });
+        close(() => Alert.alert('Correction submitted', 'Your changes were recorded in the report history. The report is pending review.'));
+        return;
+      }
       const result = await submitReport({
         ...form,
         ...(evidencePhoto && { evidence_photo: evidencePhoto }),
@@ -206,6 +247,7 @@ export function useReportFormController({
     } catch (error) {
       Alert.alert('Report submission needs attention', requestErrorMessage(error, { action: 'submit the report', write: true }));
     } finally {
+      savingRef.current = false;
       setIsSaving(false);
     }
   };
@@ -243,14 +285,13 @@ export function useReportFormController({
     resolutionNotes,
     resolveTarget,
     selectBarangay,
-    selectedReport,
+    editTarget, editReason, setEditReason, openEditForm,
     setBarangayPickerVisible,
     setEvidencePhoto,
     setFormVisible,
     setLocationPickerVisible,
     setResolutionNotes,
     setResolveTarget,
-    setSelectedReport,
     updateForm,
     updateManualLocation,
     useCurrentGpsSuggestion,

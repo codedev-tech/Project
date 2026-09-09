@@ -35,6 +35,18 @@ const createTestApp = (service) => {
 }
 
 describe('operational HTTP contracts', () => {
+	it('allows report corrections only through an authenticated officer identity', async () => {
+		let receivedActor
+		const app = createTestApp({ editReport: async (_id, _body, actor) => {
+			receivedActor = actor
+			return { status: 200, body: { success: true } }
+		} })
+		await request(app).patch('/api/reports/RPT-ONE').send({}).expect(401)
+		await request(app).patch('/api/reports/RPT-ONE').set('Authorization', 'Bearer supervisor').send({}).expect(403)
+		await request(app).patch('/api/reports/RPT-ONE').set('Authorization', 'Bearer unlinked').send({}).expect(403)
+		await request(app).patch('/api/reports/RPT-ONE').set('Authorization', 'Bearer officer').send({ personnelId: 'spoof' }).expect(200)
+		assert.equal(receivedActor.personnelId, 'PNP-CONTRACT-001')
+	})
 	it('retains the deployment list route, payload, and officer actor scope', async () => {
 		let receivedActor
 		const payload = {

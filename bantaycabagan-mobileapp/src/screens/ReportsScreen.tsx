@@ -1,7 +1,13 @@
 import React, {
   useCallback,
+  useEffect,
   useState,
 } from 'react';
+import { useRoute, type RouteProp } from '@react-navigation/native';
+import { useAuth } from '../context/AuthContext';
+import { useReportDetails } from '../features/reports/useReportDetails';
+import { ReportDateTimeField } from '../features/reports/ReportDateTimeField';
+import { formatReportDate, historyValue, reportHistoryLabel } from '../features/reports/reportDisplay';
 import { Image as CachedImage } from 'expo-image';
 import {
   ActivityIndicator,
@@ -74,6 +80,7 @@ export default function ReportsScreen() {
     personnel,
     submitReport,
     resolveReport,
+    editReport,
     refreshReports,
     loadMoreReports,
     reportsHasMore,
@@ -95,14 +102,13 @@ export default function ReportsScreen() {
     resolutionNotes,
     resolveTarget,
     selectBarangay,
-    selectedReport,
+    editTarget, editReason, setEditReason, openEditForm,
     setBarangayPickerVisible,
     setEvidencePhoto,
     setFormVisible,
     setLocationPickerVisible,
     setResolutionNotes,
     setResolveTarget,
-    setSelectedReport,
     updateForm,
     updateManualLocation,
     useCurrentGpsSuggestion,
@@ -113,7 +119,14 @@ export default function ReportsScreen() {
     personnel,
     resolveReport,
     submitReport,
+    editReport,
   });
+  const { token } = useAuth();
+  const route = useRoute<RouteProp<{ Reports: { reportId?: string; notificationRequestId?: number } }, 'Reports'>>();
+  const { reportId, openReport, selectedReport, loading: detailLoading, error: detailError, refresh: refreshDetail } = useReportDetails(token, reports);
+  useEffect(() => {
+    if (route.params?.reportId) { openReport(route.params.reportId); refreshDetail(); }
+  }, [route.params?.reportId, route.params?.notificationRequestId, openReport, refreshDetail]);
   const [filter, setFilter] = useState<(typeof reportFilters)[number]>('all');
   const [datePreset, setDatePreset] = useState<ReportDatePreset>('all');
   const [expandedReportIds, setExpandedReportIds] = useState<Set<string>>(() => new Set());
@@ -143,10 +156,10 @@ export default function ReportsScreen() {
       expanded={expandedReportIds.has(item.id)}
       onResolve={setResolveTarget}
       onToggle={toggleReport}
-      onView={setSelectedReport}
+      onView={(report) => { openReport(report.id); refreshDetail(); }}
       report={item}
     />
-  ), [expandedReportIds, toggleReport]);
+  ), [expandedReportIds, toggleReport, openReport, refreshDetail, setResolveTarget]);
 
   return (
     <SafeAreaView style={[styles.container, isDark && themeStyles.screen]} edges={[]}>
@@ -310,8 +323,8 @@ export default function ReportsScreen() {
           >
           <View style={[styles.modalHeader, isDark && themeStyles.border]}>
             <View>
-              <Text style={[styles.modalTitle, isDark && themeStyles.text]}>Submit Report</Text>
-              <Text style={[styles.modalSubtitle, isDark && themeStyles.muted]}>Record an incident or completed activity</Text>
+              <Text style={[styles.modalTitle, isDark && themeStyles.text]}>{editTarget ? 'Correct Report' : 'Submit Report'}</Text>
+              <Text style={[styles.modalSubtitle, isDark && themeStyles.muted]}>{editTarget ? 'Changes are recorded and sent for review' : 'Record an incident or completed activity'}</Text>
             </View>
           </View>
 
@@ -338,21 +351,8 @@ export default function ReportsScreen() {
             <Text style={[styles.fieldLabel, isDark && themeStyles.muted]}>TITLE</Text>
             <TextInput style={[styles.input, isDark && themeStyles.input]} value={form.title} onChangeText={(value) => updateForm('title', value)} placeholder="Short report title" placeholderTextColor={colors.textMuted} />
 
-            <Text style={[styles.fieldLabel, isDark && themeStyles.muted]}>TIME</Text>
-            <View style={[styles.autoField, isDark && themeStyles.input]}>
-              <Icon name="schedule" size={18} color={mobileTheme.purple} />
-              <Text style={[styles.autoFieldText, isDark && themeStyles.text]}>
-                {form.occurred_at
-                  ? new Date(form.occurred_at).toLocaleString([], {
-                    month: 'short',
-                    day: 'numeric',
-                    year: 'numeric',
-                    hour: 'numeric',
-                    minute: '2-digit',
-                  })
-                  : 'Auto-filled on submit'}
-              </Text>
-            </View>
+            <Text style={[styles.fieldLabel, isDark && themeStyles.muted]}>INCIDENT / ACTIVITY DATE AND TIME</Text>
+            <ReportDateTimeField value={form.occurred_at} onChange={(value) => updateForm('occurred_at', value)} />
 
             <Text style={[styles.fieldLabel, isDark && themeStyles.muted]}>ASSIGNED AREA</Text>
             <View style={[styles.autoField, isDark && themeStyles.input]}>
@@ -382,14 +382,19 @@ export default function ReportsScreen() {
             />
 
             <Text style={[styles.fieldLabel, isDark && themeStyles.muted]}>PHOTO EVIDENCE (OPTIONAL)</Text>
-            <ReportEvidenceField
+            {editTarget ? (
+              <View>
+                {editTarget.evidence_photo?.url ? <CachedImage source={{ uri: resolveApiAssetUrl(editTarget.evidence_photo.url) }} cachePolicy="memory" style={styles.detailEvidenceImage} contentFit="contain" /> : null}
+                <Text style={[styles.modalSubtitle, { color: colors.textMuted }]}>{editTarget.evidence_photo ? 'Original photo evidence is retained with this report.' : 'No photo evidence was submitted with this report.'}</Text>
+              </View>
+            ) : <ReportEvidenceField
               evidence={evidencePhoto}
               onCapture={chooseEvidenceCamera}
               onRemove={() => {
                 discardTemporaryEvidence(evidencePhoto?.uri).catch(() => undefined);
                 setEvidencePhoto(null);
               }}
-            />
+            />}
 
             {form.report_type === 'incident' && (
               <>
@@ -410,8 +415,12 @@ export default function ReportsScreen() {
               </>
             )}
 
+            {editTarget ? <>
+              <Text style={[styles.fieldLabel, isDark && themeStyles.muted]}>REASON FOR CORRECTION</Text>
+              <TextInput accessibilityLabel="Reason for correction" style={[styles.input, styles.textArea, isDark && themeStyles.input]} value={editReason} onChangeText={setEditReason} maxLength={500} multiline placeholder="Explain what was incorrect" placeholderTextColor={colors.textMuted} />
+            </> : null}
             <TouchableOpacity style={styles.primaryButton} onPress={() => handleSubmit(close)} disabled={isSaving}>
-              <Text style={styles.primaryButtonText}>{isSaving ? 'Submitting...' : 'Submit Report'}</Text>
+              <Text style={styles.primaryButtonText}>{isSaving ? 'Submitting...' : editTarget ? 'Submit correction' : 'Submit Report'}</Text>
             </TouchableOpacity>
           </SheetScrollView>
           </SafeAreaView>
@@ -478,14 +487,19 @@ export default function ReportsScreen() {
       </CenteredDialog>
 
       <CenteredDialog
-        visible={Boolean(selectedReport)}
-        onClose={() => setSelectedReport(null)}
+        visible={Boolean(reportId)}
+        onClose={() => openReport(null)}
         cardStyle={styles.detailDialog}
       >
         <View style={[styles.modalHeader, isDark && themeStyles.border]}>
           <Text style={[styles.modalTitle, isDark && themeStyles.text]}>Report Details</Text>
         </View>
-        {selectedReport && (
+        {detailLoading ? <ActivityIndicator accessibilityLabel="Loading report details" style={{ padding: 20 }} color={mobileTheme.blue} /> : null}
+        {detailError ? <View style={{ padding: 20 }}>
+          <Text accessibilityRole="alert" style={{ color: colors.danger }}>{detailError}</Text>
+          <TouchableOpacity onPress={refreshDetail}><Text style={{ color: mobileTheme.blue, paddingVertical: 12 }}>Try again</Text></TouchableOpacity>
+        </View> : null}
+        {selectedReport && !detailLoading && !detailError && (
           <ScrollView
             style={styles.dialogListViewport}
             contentContainerStyle={styles.detailBody}
@@ -495,9 +509,20 @@ export default function ReportsScreen() {
             <Text style={[styles.detailEyebrow, isDark && themeStyles.muted]}>{selectedReport.id}</Text>
             <Text style={[styles.detailTitle, isDark && themeStyles.text]}>{selectedReport.title}</Text>
             <Detail label="Report type" value={selectedReport.report_type} />
-            <Detail label="Case status" value={selectedReport.case_status} />
+            <Detail label="Review status" value={(selectedReport.validation_status || 'pending').toUpperCase()} />
+            <Detail label="Submitted by" value={selectedReport.officer} />
+            <Detail label="Submitted at" value={formatReportDate(selectedReport.date_time)} />
+            <Detail label="Incident / activity time" value={formatReportDate(selectedReport.occurred_at)} />
+            <Detail label="Assigned area" value={selectedReport.assigned_area} />
+            {selectedReport.is_incident && <>
+              <Detail label="Severity" value={`${selectedReport.severity}/5`} />
+              <Detail label="Case status" value={selectedReport.case_status} />
+            </>}
+            {selectedReport.reviewed_at ? <Detail label="Reviewed" value={`${formatReportDate(selectedReport.reviewed_at)} · ${selectedReport.reviewed_by || 'Supervisor'}`} /> : null}
             <Detail label="Barangay" value={selectedReport.barangay} />
             <Detail label="Location" value={selectedReport.location} />
+            <Detail label="Coordinates" value={selectedReport.latitude != null && selectedReport.longitude != null ? `${selectedReport.latitude.toFixed(6)}, ${selectedReport.longitude.toFixed(6)}` : 'Not recorded'} />
+            {selectedReport.submitted_from ? <Detail label="Officer GPS at submission" value={`${selectedReport.submitted_from.latitude.toFixed(6)}, ${selectedReport.submitted_from.longitude.toFixed(6)}`} /> : null}
             <Detail
               label="Location source"
               value={selectedReport.location_source === 'gps'
@@ -512,22 +537,33 @@ export default function ReportsScreen() {
                   source={{ uri: resolveApiAssetUrl(selectedReport.evidence_photo.url) }}
                   cachePolicy="memory"
                   style={styles.detailEvidenceImage}
-                  contentFit="cover"
+                  contentFit="contain"
                 />
                 <Text style={[styles.detailEvidenceMeta, isDark && themeStyles.muted]}>
                   Captured with {selectedReport.evidence_photo.camera_facing === 'front' ? 'front' : 'back'} camera
+                  {' · '}{formatReportDate(selectedReport.evidence_photo.captured_at)}
                 </Text>
               </View>
             )}
             {selectedReport.resolution_notes && (
               <Detail label="Resolution notes" value={selectedReport.resolution_notes} />
             )}
+            {selectedReport.resolved_at ? <Detail label="Resolved" value={`${formatReportDate(selectedReport.resolved_at)} · ${selectedReport.resolved_by || selectedReport.officer}`} /> : null}
+            {(selectedReport.history || []).map((entry, index) => <View key={`${entry.at}-${index}`} style={{ marginTop: 14 }}>
+              <Detail label={`${entry.kind === 'review' ? 'Review' : 'Correction'} · ${formatReportDate(entry.at)}`} value={`${entry.name || entry.by}\n${entry.reason}`} />
+              {entry.changes.map((change) => <Detail key={change.field} label={reportHistoryLabel(change.field)} value={`${historyValue(change.before)} → ${historyValue(change.after)}`} />)}
+            </View>)}
           </ScrollView>
         )}
         <View style={[styles.dialogFooter, isDark && themeStyles.border]}>
+          {selectedReport && !detailLoading && !detailError && selectedReport.personnel_id === currentPersonnelId ? <TouchableOpacity
+            style={[styles.dialogCloseButton, styles.dialogPrimaryButton]}
+            onPress={() => { openReport(null); openEditForm(selectedReport); }}>
+            <Text style={[styles.dialogCloseText, styles.dialogPrimaryText]}>{selectedReport.validation_status === 'validated' ? 'Submit correction' : 'Edit report'}</Text>
+          </TouchableOpacity> : null}
           <TouchableOpacity
             style={[styles.dialogCloseButton, styles.dialogPrimaryButton]}
-            onPress={() => setSelectedReport(null)}
+            onPress={() => openReport(null)}
           >
             <Text style={[styles.dialogCloseText, styles.dialogPrimaryText]}>Close</Text>
           </TouchableOpacity>

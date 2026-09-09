@@ -5,7 +5,7 @@ const {
 	parsePagination,
 } = require('../../utils/query')
 const { readCoordinates } = require('../../utils/geo')
-const { getLocationFreshness } = require('../../utils/locationFreshness')
+const { getLocationFreshness, getLocationStaleThresholdMs } = require('../../utils/locationFreshness')
 const { toMediaAccessPath } = require('../mediaStorageService')
 const { getLocalLocationName } = require('../reverseGeocodingService')
 
@@ -64,6 +64,7 @@ const serializePersonnel = (profile, currentLocation, options = {}) => {
 		source: currentLocation?.source || 'mock',
 		isSimulated: currentLocation?.isSimulated ?? true,
 		isLocationStale: freshness.isLocationStale,
+		locationStaleAfterSeconds: getLocationStaleThresholdMs() / 1000,
 		locationStatus: !hasCoordinates
 			? 'unavailable'
 			: (freshness.isLocationStale ? 'stale' : 'current'),

@@ -1,5 +1,6 @@
 import { act, renderHook } from '@testing-library/react-native';
 import { Alert } from 'react-native';
+import * as Notifications from 'expo-notifications';
 import { NotificationProvider, useNotifications } from './NotificationContext';
 import { fetchMyNotifications, markAllMyNotificationsRead, markMyNotificationRead } from '../services/notificationsApi';
 jest.mock('./AuthContext', () => ({ useAuth: () => ({ token: 'test' }) }));
@@ -9,7 +10,7 @@ jest.mock('expo-device', () => ({ isDevice: false }));
 jest.mock('expo-notifications', () => ({
   setNotificationHandler: jest.fn(), setBadgeCountAsync: jest.fn(async () => {}),
   addNotificationReceivedListener: () => ({ remove() {} }),
-  addNotificationResponseReceivedListener: () => ({ remove() {} }),
+  addNotificationResponseReceivedListener: jest.fn(() => ({ remove() {} })),
   getLastNotificationResponseAsync: jest.fn(async () => null),
 }));
 const notification = { id: 'one', type: 'backup', title: 'Backup', message: 'Help', timestamp: '2026-09-01', isRead: false, priority: 'normal' as const };
@@ -39,4 +40,16 @@ it('opens the destination even if marking read fails, and reports the error', as
   expect(result.current.navigationRequest?.destination).toBe('Map');
   expect(result.current.notifications[0].isRead).toBe(false);
   expect(result.current.notificationsError).toMatch(/permission/);
+});
+it('retains the exact report reference when opening an in-app validation alert', async () => {
+  const { result } = await renderHook(useNotifications, { wrapper: NotificationProvider });
+  await act(() => result.current.openNotification({ ...notification, isRead: true, referenceType: 'report', referenceId: 'RPT-ONE' }));
+  expect(result.current.navigationRequest).toMatchObject({ destination: 'Reports', referenceId: 'RPT-ONE' });
+});
+it('opens a push report reference when the payload uses reportId', async () => {
+  const { result } = await renderHook(useNotifications, { wrapper: NotificationProvider });
+  const listener = jest.mocked(Notifications.addNotificationResponseReceivedListener).mock.calls[0][0];
+  // Only the routing payload is consumed here; native display fields are omitted.
+  await act(() => listener({ actionIdentifier: 'default', notification: { request: { content: { data: { destination: 'Reports', reportId: 'RPT-OLDER' } } } } } as unknown as Notifications.NotificationResponse));
+  expect(result.current.navigationRequest).toMatchObject({ destination: 'Reports', referenceId: 'RPT-OLDER' });
 });

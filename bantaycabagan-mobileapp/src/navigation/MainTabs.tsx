@@ -72,6 +72,9 @@ function FloatingTabBar({
   useEffect(() => {
     if (!navigationRequest) return;
     if (navigationRequest.destination === 'Tasks') openTaskModal();
+    else if (navigationRequest.destination === 'Reports') navigation.navigate('Reports', {
+      reportId: navigationRequest.referenceId, notificationRequestId: navigationRequest.requestId,
+    });
     else navigation.navigate(navigationRequest.destination);
     clearNavigationRequest();
   }, [clearNavigationRequest, navigation, navigationRequest, openTaskModal]);

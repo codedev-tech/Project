@@ -2,6 +2,7 @@ const assert = require('node:assert/strict')
 const { beforeEach, describe, it, mock } = require('node:test')
 const { EmailVerification, User } = require('../src/models')
 const emailService = require('../src/services/emailService')
+const otpRequestLimit = require('../src/services/otpRequestLimit')
 // Never send email or connect to MongoDB in these tests.
 mock.method(emailService, 'sendVerificationCode', async () => {})
 const auth = require('../src/services/authService')
@@ -14,6 +15,8 @@ const oldest = new Date(now - 2 * 60_000)
 describe('verification feedback and server deadlines', () => {
   beforeEach((t) => {
     t.mock.method(Date, 'now', () => now)
+    t.mock.method(otpRequestLimit, 'reserve', async () => ({ id: 'reservation', userId: 'user', resendAvailableAt: new Date(now).toISOString() }))
+    t.mock.method(otpRequestLimit, 'release', async () => {})
     t.mock.method(User, 'findOne', async () => ({ _id: 'user', email: 'officer@example.com' }))
     t.mock.method(EmailVerification, 'countDocuments', async () => 0)
     t.mock.method(EmailVerification, 'findOne', () => ({ sort: async () => ({ createdAt: oldest }) }))
@@ -29,13 +32,13 @@ describe('verification feedback and server deadlines', () => {
   })
 
   it('returns the remaining account window after the third code', async (t) => {
-    t.mock.method(EmailVerification, 'countDocuments', async () => 2)
+    t.mock.method(otpRequestLimit, 'reserve', async () => ({ id: 'third', resendAvailableAt: new Date(oldest.getTime() + 900_000).toISOString() }))
     const response = await auth.requestPasswordReset({ identifier: '01-2002' })
     assert.equal(response.resendAvailableAt, new Date(oldest.getTime() + 900_000).toISOString())
   })
 
   it('rejects a fourth request with its retry deadline before creating or invalidating codes', async (t) => {
-    t.mock.method(EmailVerification, 'countDocuments', async () => 3)
+    t.mock.method(otpRequestLimit, 'reserve', async () => { throw Object.assign(new Error('Limit'), { code: 'OTP_RATE_LIMITED', retryAt: new Date(oldest.getTime() + 900_000).toISOString() }) })
     await assert.rejects(auth.requestPasswordReset({ identifier: '01-2002' }), (error) => {
       assert.equal(error.code, 'OTP_RATE_LIMITED')
       assert.equal(error.retryAt, new Date(oldest.getTime() + 900_000).toISOString())

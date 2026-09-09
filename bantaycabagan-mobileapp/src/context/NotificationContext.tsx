@@ -194,12 +194,13 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
       const data = response.notification.request.content.data as {
         destination?: NotificationNavigationRequest['destination'];
         referenceId?: string;
+        reportId?: string;
         notificationId?: string;
       };
       if (data.notificationId && token) void updateReadState(data.notificationId);
       setNavigationRequest({
         destination: data.destination || 'Map',
-        referenceId: data.referenceId,
+        referenceId: data.referenceId || data.reportId,
         requestId: Date.now(),
       });
       refreshNotifications().catch(() => undefined);

@@ -29,6 +29,7 @@ const {
 } = require('./domain')
 const { getOfficerPersonnelId } = require('./access')
 const { appendFilterCondition, findCursorPage } = require('./pagination')
+const { editValues, assertRevision, saveReport } = require('./reportEdits')
 
 const REPORT_GPS_MAX_DISTANCE_METERS = 100
 const CLIENT_SUBMISSION_ID_PATTERN = /^mobile-[a-z0-9-]{10,100}$/i
@@ -138,7 +139,7 @@ const createReportService = ({
 		return serializeReport(report, personnelById)
 	}
 
-	const updateReportValidation = async (reportId, payload = {}) => {
+	const updateReportValidation = async (reportId, payload = {}, actor = {}) => {
 		const validationStatus = String(payload.validation_status || '').toLowerCase()
 		if (!['pending', 'validated', 'rejected'].includes(validationStatus)) {
 			return {
@@ -148,8 +149,15 @@ const createReportService = ({
 		}
 		const report = await Report.findOne({ reportNumber: reportId })
 		if (!report) return createNotFoundResult('Report')
+		if (payload.revision !== undefined) assertRevision(report, payload.revision)
+		const previousStatus = report.validationStatus
 		report.validationStatus = validationStatus
-		await report.save()
+		report.reviewedAt = clock()
+		report.reviewedBy = actor.fullName || actor.username || 'Supervisor'
+		report.history ||= []
+		report.history.push({ at: clock(), by: String(actor.id || actor._id || 'supervisor'), name: report.reviewedBy,
+			kind: 'review', reason: 'Supervisor review', changes: [{ field: 'validationStatus', before: previousStatus, after: validationStatus }] })
+		await saveReport(report)
 		const personnelById = await loadPersonnelMap([report.submittedBy])
 		const serialized = serializeReport(report, personnelById)
 		const notificationType = validationStatus === 'validated'
@@ -169,10 +177,43 @@ const createReportService = ({
 			...notification,
 			priority: validationStatus === 'rejected' ? 'high' : 'normal',
 			data: { destination: 'Reports', reportId: report.reportNumber },
-			dedupeKey: `report:${report.reportNumber}:validation:${validationStatus}`,
+			dedupeKey: `report:${report.reportNumber}:validation:${validationStatus}:${report.__v || 0}`,
 		})
 		emitToSupervisorAndPersonnel('report:updated', serialized, report.submittedBy)
 		io.emit('dashboard:updated')
+		return { status: 200, body: { success: true, report: serialized } }
+	}
+
+	const editReport = async (reportId, payload, actor) => {
+		const personnelId = getOfficerPersonnelId(actor)
+		if (!personnelId) return { status: 403, body: { success: false, message: 'Only the submitting officer can correct a report.' } }
+		const report = await Report.findOne({ reportNumber: reportId, submittedBy: personnelId })
+		if (!report) return createNotFoundResult('Report')
+		const { values, changes, reason } = editValues(report, payload, clock())
+		const oldCoordinates = report.location?.coordinates
+		const newCoordinates = values.location?.coordinates
+		if (values.locationSource === 'gps' && (report.locationSource !== 'gps' || JSON.stringify(oldCoordinates) !== JSON.stringify(newCoordinates))) {
+			const current = await CurrentLocation.findOne({ personnelId }).lean()
+			const age = clock().getTime() - new Date(current?.recordedAt || 0).getTime()
+			if (!current?.location?.coordinates || !Number.isFinite(age) || age < -300000 || age > getLocationStaleThresholdMs()
+				|| distanceInMeters(current.location.coordinates, newCoordinates) > REPORT_GPS_MAX_DISTANCE_METERS) {
+				throw createValidationError('The current GPS reading is unavailable or changed. Pick the actual incident point manually.', 'location')
+			}
+		}
+		const previousStatus = report.validationStatus
+		report.history ||= []
+		report.history.push({ at: clock(), by: personnelId, name: actor.fullName || report.officerName,
+			kind: previousStatus === 'validated' ? 'correction' : 'edit', reason,
+			changes: [...changes, { field: 'validationStatus', before: previousStatus, after: 'pending' }] })
+		Object.assign(report, values, { validationStatus: 'pending', reviewedAt: undefined, reviewedBy: undefined })
+		// The original route/evidence and submission metadata remain part of the record.
+		await saveReport(report)
+		const serialized = serializeReport(report, await loadPersonnelMap([personnelId]))
+		emitToSupervisorAndPersonnel('report:updated', serialized, personnelId)
+		io.emit('dashboard:updated')
+		// A notification delivery failure must not turn a saved correction into a failed write.
+		await createNotification({ type: 'info', title: 'Report correction submitted',
+			message: `${report.reportNumber} was corrected and needs review.`, referenceType: 'report', referenceId: report.reportNumber }).catch(() => {})
 		return { status: 200, body: { success: true, report: serialized } }
 	}
 
@@ -278,8 +319,8 @@ const createReportService = ({
 				'location', 'REPORT_GPS_LOCATION_MISMATCH',
 			)
 		}
-		const latitude = locationSource === 'gps' ? Number(currentCoordinates[1]) : suppliedLatitude
-		const longitude = locationSource === 'gps' ? Number(currentCoordinates[0]) : suppliedLongitude
+		const latitude = suppliedLatitude
+		const longitude = suppliedLongitude
 		const hasReportCoordinates = isValidCoordinates(latitude, longitude)
 		if (hasReportCoordinates && !isInsideCabagan(latitude, longitude)) {
 			throw createValidationError(
@@ -362,7 +403,7 @@ const createReportService = ({
 				maxLength: OPERATIONAL_LIMITS.resolutionNotes,
 			}),
 		}
-		await report.save()
+		await saveReport(report)
 		const serialized = serializeReport(report)
 		await createNotification({
 			type: 'success', title: 'Case Resolved',
@@ -376,6 +417,7 @@ const createReportService = ({
 
 	return {
 		getReport,
+		editReport,
 		getReportByClientSubmissionId,
 		listReports,
 		loadReports,

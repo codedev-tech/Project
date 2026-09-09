@@ -17,6 +17,7 @@ const {
 	verifyCodeHash,
 } = require('../utils/verification')
 const { sendVerificationCode } = require('./emailService')
+const otpRequestLimit = require('./otpRequestLimit')
 const { toMediaAccessPath } = require('./mediaStorageService')
 const {
 	LOGIN_ID_PATTERN,
@@ -25,8 +26,6 @@ const {
 
 const SESSION_DURATION_MS = 7 * 24 * 60 * 60 * 1000
 const OTP_DURATION_MS = 10 * 60 * 1000
-const OTP_RATE_WINDOW_MS = 15 * 60 * 1000
-const OTP_RATE_LIMIT = 3
 const SESSION_TOUCH_INTERVAL_MS = 5 * 60 * 1000
 const hashToken = (token) => createHash('sha256').update(token).digest('hex')
 
@@ -88,51 +87,36 @@ const createVerificationChallenge = async (
 	{ deviceName, requestIp } = {},
 ) => {
 	const email = await getAccountEmail(user)
-	const recentCount = await EmailVerification.countDocuments({
-		userId: user._id,
-		createdAt: { $gte: new Date(Date.now() - OTP_RATE_WINDOW_MS) },
-	})
-	if (recentCount >= OTP_RATE_LIMIT) {
-		const oldest = await EmailVerification.findOne({ userId: user._id, createdAt: { $gte: new Date(Date.now() - OTP_RATE_WINDOW_MS) } }).sort({ createdAt: 1 })
-		const error = createAuthError(
-			'Too many codes requested. Please wait before requesting another code.',
-			429,
-			'OTP_RATE_LIMITED',
-		)
-		error.retryAt = new Date((oldest?.createdAt?.getTime() || Date.now()) + OTP_RATE_WINDOW_MS).toISOString()
-		throw error
-	}
-
-	await EmailVerification.updateMany(
-		{ userId: user._id, purpose, consumedAt: null },
-		{ $set: { consumedAt: new Date() } },
-	)
-
-	const code = createCode()
-	const challenge = await EmailVerification.create({
-		userId: user._id,
-		email,
-		purpose,
-		otpHash: hashCode(code),
-		expiresAt: new Date(Date.now() + OTP_DURATION_MS),
-		requestIp,
-		deviceName: String(deviceName || 'Unknown device'),
-	})
-
+	const reservation = await otpRequestLimit.reserve(user._id)
+	let challenge
 	try {
+		await EmailVerification.updateMany(
+			{ userId: user._id, purpose, consumedAt: null },
+			{ $set: { consumedAt: new Date() } },
+		)
+
+		const code = createCode()
+		challenge = await EmailVerification.create({
+			userId: user._id,
+			email,
+			purpose,
+			otpHash: hashCode(code),
+			expiresAt: new Date(Date.now() + OTP_DURATION_MS),
+			requestIp,
+			deviceName: String(deviceName || 'Unknown device'),
+		})
+
 		await sendVerificationCode({ email, code, purpose })
-		const oldest = recentCount + 1 >= OTP_RATE_LIMIT
-			? await EmailVerification.findOne({ userId: user._id, createdAt: { $gte: new Date(Date.now() - OTP_RATE_WINDOW_MS) } }).sort({ createdAt: 1 })
-			: null
 		return {
 			challengeId: String(challenge._id),
 			maskedEmail: maskEmail(email),
 			expiresAt: challenge.expiresAt.toISOString(),
 			serverTime: new Date().toISOString(),
-			resendAvailableAt: new Date(oldest ? oldest.createdAt.getTime() + OTP_RATE_WINDOW_MS : Date.now()).toISOString(),
+			resendAvailableAt: reservation.resendAvailableAt,
 		}
 	} catch (error) {
-		await EmailVerification.deleteOne({ _id: challenge._id })
+		if (challenge) await EmailVerification.deleteOne({ _id: challenge._id }).catch(() => {})
+		await otpRequestLimit.release(reservation).catch(() => {})
 		throw error
 	}
 }

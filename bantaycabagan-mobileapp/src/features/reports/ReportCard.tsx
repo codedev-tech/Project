@@ -33,6 +33,9 @@ export function ReportCard({ expanded, onResolve, onToggle, onView, report }: Re
             <Text style={styles.typeBadgeText}>{report.report_type}</Text>
           </View>
           <View style={styles.topActions}>
+            <View style={[styles.caseBadge, report.validation_status === 'validated' ? styles.resolvedBadge : report.validation_status === 'rejected' ? styles.incidentBadge : styles.openBadge]}>
+              <Text style={styles.caseBadgeText}>{report.validation_status || 'pending'}</Text>
+            </View>
             {report.is_incident && (
               <View style={[styles.caseBadge, report.case_status === 'resolved' ? styles.resolvedBadge : styles.openBadge]}>
                 <Text style={styles.caseBadgeText}>{report.case_status}</Text>

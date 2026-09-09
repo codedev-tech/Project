@@ -39,5 +39,5 @@ export const getBarangayFromArea = (area?: string) => {
     return normalized === candidate
       || normalized.startsWith(`${candidate},`)
       || normalized.startsWith(`${candidate} `);
-  }) || '';
+  }) || value.split(',').map((part) => findCabaganBarangay(part.trim())).find(Boolean) || '';
 };

@@ -6,6 +6,7 @@ const EXPECTED_MODEL_CONTRACTS = {
 	User: ['users', 4],
 	AuthSession: ['auth_sessions', 3],
 	EmailVerification: ['email_verifications', 2],
+	OtpRequestWindow: ['otp_request_windows', 1],
 	Personnel: ['personnel', 5],
 	GpsDeviceAssignment: ['gps_device_assignments', 4],
 	CurrentLocation: ['current_locations', 3],

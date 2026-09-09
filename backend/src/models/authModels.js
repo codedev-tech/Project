@@ -64,8 +64,17 @@ const emailVerificationSchema = new mongoose.Schema({
 emailVerificationSchema.index({ userId: 1, purpose: 1, createdAt: -1 })
 emailVerificationSchema.index({ expiresAt: 1 }, { expireAfterSeconds: 0 })
 
+// OTP send history must outlive the ten-minute verification code itself.
+const otpRequestWindowSchema = new mongoose.Schema({
+	_id: String,
+	requests: [{ _id: false, id: String, at: Date }],
+	expiresAt: { type: Date, required: true },
+}, { collection: 'otp_request_windows' })
+otpRequestWindowSchema.index({ expiresAt: 1 }, { expireAfterSeconds: 0 })
+
 module.exports = {
 	User: model('User', userSchema),
 	AuthSession: model('AuthSession', authSessionSchema),
 	EmailVerification: model('EmailVerification', emailVerificationSchema),
+	OtpRequestWindow: model('OtpRequestWindow', otpRequestWindowSchema),
 }

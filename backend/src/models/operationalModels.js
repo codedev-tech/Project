@@ -68,6 +68,13 @@ const reportSchema = new mongoose.Schema({
 	isIncident: { type: Boolean, required: true },
 	severity: { type: Number, min: 1, max: 5, default: 1 },
 	validationStatus: { type: String, enum: ['pending', 'validated', 'rejected'], default: 'pending' },
+	reviewedAt: Date,
+	reviewedBy: String,
+	history: { type: [new mongoose.Schema({
+		at: Date, by: String, name: String, reason: String,
+		kind: { type: String, enum: ['edit', 'correction', 'review'] },
+		changes: [{ _id: false, field: String, before: mongoose.Schema.Types.Mixed, after: mongoose.Schema.Types.Mixed }],
+	}, { _id: false })], default: [] },
 	caseStatus: { type: String, enum: ['open', 'resolved', 'not_applicable'], required: true },
 	title: { type: String, required: true, maxlength: OPERATIONAL_LIMITS.reportTitle },
 	description: { type: String, default: '', maxlength: OPERATIONAL_LIMITS.reportDescription },
@@ -88,6 +95,7 @@ const reportSchema = new mongoose.Schema({
 }, {
 	collection: 'reports',
 	timestamps: true,
+	optimisticConcurrency: true,
 })
 reportSchema.index({ reportNumber: 1 }, { unique: true })
 reportSchema.index(

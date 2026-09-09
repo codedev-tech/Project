@@ -68,7 +68,11 @@ const createReportController = (operationalService, mediaStorage = {
 		res.status(result.status).json(result.body)
 	},
 	updateReportValidation: async (req, res) => {
-		const result = await operationalService.updateReportValidation(req.params.reportId, req.body)
+		const result = await operationalService.updateReportValidation(req.params.reportId, req.body, req.auth.user)
+		res.status(result.status).json(result.body)
+	},
+	editReport: async (req, res) => {
+		const result = await operationalService.editReport(req.params.reportId, req.body, req.auth.user)
 		res.status(result.status).json(result.body)
 	},
 })

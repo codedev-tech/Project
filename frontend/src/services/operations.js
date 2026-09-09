@@ -105,12 +105,12 @@ export const replaceDeployments = async (assignments) => {
   return payload.deployments
 }
 
-export const updateReportValidation = async (reportId, validationStatus) => {
+export const updateReportValidation = async (reportId, validationStatus, revision) => {
   const payload = await apiRequest(
     `/api/reports/${encodeURIComponent(reportId)}/validation`,
     {
       method: 'PATCH',
-      body: JSON.stringify({ validation_status: validationStatus }),
+      body: JSON.stringify({ validation_status: validationStatus, revision }),
     },
   )
   return payload.report

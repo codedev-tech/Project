@@ -30,6 +30,10 @@ export type PoliceReport = {
   is_incident: boolean;
   severity: number;
   validation_status: string;
+  revision?: number;
+  reviewed_at?: string;
+  reviewed_by?: string;
+  history?: { at: string; by: string; name: string; reason: string; kind: 'edit' | 'correction' | 'review'; changes: { field: string; before: unknown; after: unknown }[] }[];
   case_status: 'open' | 'resolved' | 'not_applicable';
   title: string;
   description: string;
@@ -99,6 +103,7 @@ export type LivePersonnel = {
   isLocationStale?: boolean;
   locationStatus?: 'current' | 'stale' | 'unavailable';
   locationAgeSeconds?: number | null;
+  locationStaleAfterSeconds?: number;
   locationRecordedAt?: string;
   speed?: number | null;
   batteryLevel?: number | null;

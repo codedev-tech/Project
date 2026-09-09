@@ -1,5 +1,6 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
+  Keyboard,
   Pressable,
   StyleSheet,
   Text,
@@ -29,19 +30,62 @@ export default function VerificationCodeInput({
 }: Props) {
   const inputRef = useRef<TextInput>(null);
   const focusedRequest = useRef(0);
-  useEffect(() => {
-    if (!disabled && focusRequest !== focusedRequest.current) {
-      focusedRequest.current = focusRequest;
-      const frame = requestAnimationFrame(() => inputRef.current?.focus());
-      return () => cancelAnimationFrame(frame);
-    }
-    return undefined;
-  }, [disabled, focusRequest]);
+  const focusFrame = useRef<number | null>(null);
   const [focused, setFocused] = useState(false);
   const [selection, setSelection] = useState({ start: 0, end: 0 });
   const normalizedValue = value.replace(/\D/g, '').slice(0, CODE_LENGTH);
+  const boundedSelection = {
+    start: Math.min(selection.start, normalizedValue.length),
+    end: Math.min(selection.end, normalizedValue.length),
+  };
+
+  // The parent clears rejected/resend codes independently of onChangeText.
+  // Never send the old cursor (e.g. 6,6) to an empty native input.
+  useEffect(() => {
+    setSelection((current) => {
+      const start = Math.min(current.start, normalizedValue.length);
+      const end = Math.min(current.end, normalizedValue.length);
+      return start === current.start && end === current.end ? current : { start, end };
+    });
+  }, [normalizedValue]);
+
+  const cancelFocus = useCallback(() => {
+    if (focusFrame.current !== null) {
+      cancelAnimationFrame(focusFrame.current);
+      focusFrame.current = null;
+    }
+  }, []);
+
+  const focusInput = useCallback((nextSelection: { start: number; end: number }, onFocused?: () => void) => {
+    cancelFocus();
+    if (disabled) return;
+    setSelection(nextSelection);
+
+    // Android can hide the IME while React Native still considers this input
+    // focused. focus() alone then skips the native command. Clear that stale
+    // focus first, and refocus after the cleared value/selection have committed.
+    if (!Keyboard.isVisible()) inputRef.current?.blur();
+    focusFrame.current = requestAnimationFrame(() => {
+      focusFrame.current = null;
+      const input = inputRef.current;
+      if (!input) return;
+      input.setNativeProps({ selection: nextSelection });
+      input.focus();
+      onFocused?.();
+    });
+  }, [cancelFocus, disabled]);
+
+  // Cancel delayed work when submitting, navigating away, or unmounting.
+  useEffect(() => cancelFocus, [cancelFocus, disabled]);
+  useEffect(() => {
+    if (!disabled && focusRequest !== focusedRequest.current) {
+      focusInput({ start: 0, end: 0 }, () => { focusedRequest.current = focusRequest; });
+    }
+    return cancelFocus;
+  }, [cancelFocus, disabled, focusInput, focusRequest]);
+
   const activeIndex = Math.min(
-    focused ? selection.start : normalizedValue.length,
+    focused ? boundedSelection.start : normalizedValue.length,
     CODE_LENGTH - 1,
   );
 
@@ -53,11 +97,7 @@ export default function VerificationCodeInput({
       end: normalizedValue[index] ? start + 1 : start,
     };
 
-    setSelection(nextSelection);
-    inputRef.current?.focus();
-    requestAnimationFrame(() => {
-      inputRef.current?.setNativeProps({ selection: nextSelection });
-    });
+    focusInput(nextSelection);
   };
 
   const handleChangeText = (nextValue: string) => {
@@ -100,7 +140,7 @@ export default function VerificationCodeInput({
         // can otherwise leave it permanently unfocusable after a failed OTP.
         editable
         value={normalizedValue}
-        selection={selection}
+        selection={boundedSelection}
         onChangeText={handleChangeText}
         onSelectionChange={(event) => setSelection(event.nativeEvent.selection)}
         onFocus={() => setFocused(true)}

@@ -37,7 +37,7 @@ const webTokenStorageSource = fs.readFileSync(
 
 assert.match(verificationCodeSource, /onPress=\{\(\) => focusDigit\(index\)\}/)
 assert.match(verificationCodeSource, /end:\s*normalizedValue\[index\]\s*\?\s*start \+ 1\s*:\s*start/)
-assert.match(verificationCodeSource, /selection=\{selection\}/)
+assert.match(verificationCodeSource, /selection=\{boundedSelection\}/)
 assert.match(loginSource, /handleVerificationCodeChange/)
 assert.match(loginSource, /if \(error\) setError\(''\)/)
 assert.ok(authValidationSource.includes('export const LOGIN_ID_PATTERN = /^\\d{2}-\\d{4}$/;'),

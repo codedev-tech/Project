@@ -1,4 +1,5 @@
 import React from 'react';
+import { Keyboard, TextInput } from 'react-native';
 import { act, cleanup, fireEvent, render } from '@testing-library/react-native';
 import LoginScreen from './LoginScreen';
 import { beginLogin, requestPasswordReset, resendVerificationCode, resetPassword, verifyLoginCode } from './services/authApi';
@@ -24,6 +25,7 @@ beforeEach(() => {
 });
 afterEach(async () => {
   await cleanup();
+  jest.restoreAllMocks();
   jest.useRealTimers();
 });
 
@@ -36,6 +38,43 @@ async function openVerification() {
 }
 
 describe('automatic login verification', () => {
+  it('recovers the keyboard after consecutive wrong codes and accepts a correct retry', async () => {
+    let nativeFocused = true;
+    let keyboardVisible = false;
+    jest.spyOn(Keyboard, 'isVisible').mockImplementation(() => keyboardVisible);
+    jest.spyOn(TextInput.prototype, 'blur').mockImplementation(() => {
+      nativeFocused = false;
+      keyboardVisible = false;
+    });
+    jest.spyOn(TextInput.prototype, 'focus').mockImplementation(() => {
+      if (nativeFocused) return;
+      nativeFocused = true;
+      keyboardVisible = true;
+    });
+    const wrongCode = Object.assign(new Error('Wrong'), { code: 'INCORRECT_OTP' });
+    jest.mocked(verifyLoginCode)
+      .mockRejectedValueOnce(wrongCode)
+      .mockRejectedValueOnce(wrongCode)
+      .mockRejectedValueOnce(wrongCode);
+    const view = await openVerification();
+    for (const code of ['111111', '222222', '333333']) {
+      keyboardVisible = false;
+      await fireEvent.changeText(view.getByLabelText('Six-digit verification code'), code);
+      await act(() => jest.advanceTimersByTime(32));
+      expect(view.getByLabelText('Six-digit verification code')).toHaveProp('value', '');
+      expect(view.getByLabelText('Six-digit verification code')).toHaveProp('selection', { start: 0, end: 0 });
+      expect(keyboardVisible).toBe(true);
+      // Dismissing the recovered keyboard must still allow a box tap to reopen it.
+      keyboardVisible = false;
+      await fireEvent.press(view.getByLabelText('Verification code digit 1'));
+      await act(() => jest.advanceTimersByTime(32));
+      expect(keyboardVisible).toBe(true);
+    }
+    await fireEvent.changeText(view.getByLabelText('Six-digit verification code'), '654321');
+    expect(verifyLoginCode).toHaveBeenCalledTimes(4);
+    expect(mockEstablishSession).toHaveBeenCalledWith(session);
+  });
+
   it('clears only incorrect codes and allows a fresh automatic attempt', async () => {
     jest.mocked(verifyLoginCode).mockRejectedValueOnce(Object.assign(new Error('Wrong'), { code: 'INCORRECT_OTP' }));
     const view = await openVerification();

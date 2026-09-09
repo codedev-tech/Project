@@ -17,6 +17,7 @@ import {
   requestBackup,
   resolveApiAssetUrl,
   resolveIncidentReport,
+  editPoliceReport,
 } from '../services/operationsApi';
 import type {
   DeploymentAssignment,
@@ -56,6 +57,7 @@ type OperationalContextValue = {
   createBackupRequest: () => Promise<void>;
   submitReport: (input: SubmitReportInput) => Promise<'submitted' | 'queued'>;
   resolveReport: (reportId: string, resolutionNotes: string) => Promise<void>;
+  editReport: (reportId: string, input: Parameters<typeof editPoliceReport>[1]) => Promise<PoliceReport>;
   acknowledgeDeployment: (assignmentId: string) => Promise<void>;
   refreshReports: (
     category: 'all' | 'incident' | 'routine',
@@ -214,6 +216,12 @@ export function OperationalProvider({ children }: { children: React.ReactNode })
     setReports((items) => upsertById(items, response.report));
   }, [actor, token]);
 
+  const editReport = useCallback(async (reportId: string, input: Parameters<typeof editPoliceReport>[1]) => {
+    const response = await editPoliceReport(reportId, input, token);
+    setReports((items) => upsertById(items, response.report));
+    return response.report;
+  }, [token]);
+
   const acknowledgeDeployment = useCallback(async (assignmentId: string) => {
     const response = await acknowledgeDeploymentAssignment(assignmentId, token);
     setDeployments((items) => upsertById(items, response.deployment));
@@ -243,6 +251,7 @@ export function OperationalProvider({ children }: { children: React.ReactNode })
     createBackupRequest,
     submitReport,
     resolveReport,
+    editReport,
     acknowledgeDeployment,
     refreshReports,
     loadMoreReports,
@@ -270,6 +279,7 @@ export function OperationalProvider({ children }: { children: React.ReactNode })
     personnel,
     reports,
     resolveReport,
+    editReport,
     acknowledgeDeployment,
     refreshReports,
     loadMoreReports,
